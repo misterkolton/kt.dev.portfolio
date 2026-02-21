@@ -1,14 +1,5 @@
 :root {
-  color-scheme: dark;
   font-family: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
-  --bg: #06080d;
-  --text: #d2d9e3;
-  --muted: #7f8ea4;
-  --accent: #39e9a3;
-  --command: #7f96c8;
-  --link: #8fa4c6;
-  --border: rgb(120 141 170 / 24%);
-  --area: #bb8fdf;
 }
 
 * {
@@ -23,8 +14,8 @@ body,
 }
 
 body {
-  background: var(--bg);
-  color: var(--text);
+  background: #06080d;
+  color: #d2d9e3;
   -webkit-font-smoothing: antialiased;
   text-rendering: geometricPrecision;
 }
@@ -39,8 +30,45 @@ a:hover {
 }
 
 .app-shell {
+  --bg: #06080d;
+  --text: #d2d9e3;
+  --muted: #7f8ea4;
+  --accent: #39e9a3;
+  --command: #7f96c8;
+  --link: #8fa4c6;
+  --border: rgb(120 141 170 / 24%);
+  --area: #bb8fdf;
+  --lead: #9cb2d3;
+  --title: #e8edf5;
+  --tag: #85b8dd;
+  --date: #839ac0;
   min-height: 100%;
   padding: clamp(0.85rem, 2.5vw, 1.6rem) clamp(0.75rem, 2.4vw, 1.7rem);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app-shell.theme-light {
+  --bg: #f5f7fb;
+  --text: #1f2937;
+  --muted: #59667a;
+  --accent: #1ca06a;
+  --command: #4e6284;
+  --link: #355175;
+  --border: rgb(76 98 131 / 28%);
+  --area: #7f59aa;
+  --lead: #4e6284;
+  --title: #121926;
+  --tag: #3f709f;
+  --date: #5a7395;
+}
+
+.app-shell.mode-explore {
+  padding-bottom: calc(2.9rem + env(safe-area-inset-bottom));
+}
+
+.app-shell.mode-explore .terminal-nav {
+  margin-bottom: 0.4rem;
 }
 
 .terminal-landing {
@@ -49,6 +77,53 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 1.9rem;
+}
+
+.control-bar {
+  margin: 0 0 0.25rem 1.05rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.1rem;
+}
+
+.toggle-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.toggle-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
+.toggle-options {
+  display: inline-flex;
+  border: 1px solid var(--border);
+}
+
+.toggle-button {
+  border: 0;
+  background: transparent;
+  color: var(--command);
+  font: inherit;
+  font-size: 0.83rem;
+  line-height: 1.15;
+  padding: 0.24rem 0.46rem;
+  cursor: pointer;
+}
+
+.toggle-button[data-active='true'] {
+  background: var(--border);
+  color: var(--text);
+}
+
+.toggle-button:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
 }
 
 .terminal-nav {
@@ -106,7 +181,7 @@ a:hover {
 .hero-lead {
   margin: 0;
   max-width: 75ch;
-  color: #9cb2d3;
+  color: var(--lead);
   font-size: 0.96rem;
   line-height: 1.5;
 }
@@ -183,7 +258,7 @@ a:hover {
 .project-name,
 .post-title {
   margin: 0;
-  color: #e8edf5;
+  color: var(--title);
   font-size: 0.98rem;
   line-height: 1.35;
 }
@@ -233,7 +308,7 @@ a:hover {
 
 .project-tags {
   margin: 0;
-  color: #85b8dd;
+  color: var(--tag);
   font-size: 0.85rem;
   line-height: 1.36;
 }
@@ -246,7 +321,7 @@ a:hover {
 
 .post-date {
   margin: 0;
-  color: #839ac0;
+  color: var(--date);
   font-size: 0.88rem;
   line-height: 1.34;
 }
@@ -263,13 +338,176 @@ a:hover {
   overflow-wrap: anywhere;
 }
 
+.terminal-dock {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 45;
+  pointer-events: none;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 0.2rem);
+}
+
+.terminal-dock-panel {
+  pointer-events: auto;
+  width: min(100%, 920px);
+  margin: 0 auto;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  background: #0a0f18;
+  max-height: min(40vh, 300px);
+  overflow: hidden;
+}
+
+.app-shell.theme-light .terminal-dock-panel {
+  background: #ebf1f9;
+}
+
+.explore-terminal {
+  display: flex;
+  flex-direction: column;
+}
+
+.explore-terminal-output {
+  min-height: 130px;
+  max-height: calc(min(40vh, 300px) - 2.05rem);
+  overflow: auto;
+  padding: 0.62rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.42rem;
+}
+
+.explore-terminal-command,
+.explore-terminal-line {
+  margin: 0;
+  font-size: 0.83rem;
+  line-height: 1.35;
+}
+
+.explore-terminal-command {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.explore-terminal-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.14rem;
+}
+
+.explore-terminal-prompt {
+  color: var(--accent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.explore-terminal-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-top: 1px solid var(--border);
+  padding: 0.42rem 0.75rem;
+  background: rgb(8 12 18 / 94%);
+}
+
+.app-shell.theme-light .explore-terminal-input-row {
+  background: rgb(235 241 249 / 96%);
+}
+
+.explore-terminal-input {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.83rem;
+  line-height: 1.3;
+  min-width: 0;
+  flex: 1;
+}
+
+.explore-terminal-input:focus {
+  outline: none;
+}
+
+.explore-terminal-input::placeholder {
+  color: var(--muted);
+}
+
+.terminal-dock-bar {
+  pointer-events: auto;
+  height: 2.02rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0 calc(env(safe-area-inset-right) + 0.95rem) 0
+    calc(env(safe-area-inset-left) + 0.95rem);
+  background: #0e8a97;
+  color: #e9fbff;
+  border-top: 1px solid rgb(0 0 0 / 22%);
+  font-size: 0.82rem;
+}
+
+.app-shell.theme-light .terminal-dock-bar {
+  background: #2f7f94;
+  color: #eff9ff;
+}
+
+.terminal-dock-toggle {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0;
+  cursor: pointer;
+}
+
+.terminal-dock-toggle:hover {
+  text-decoration: underline;
+}
+
+.terminal-dock-toggle:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 2px;
+}
+
+.terminal-dock-icon {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.terminal-dock-shortcut {
+  opacity: 0.9;
+}
+
 @media (max-width: 760px) {
   .app-shell {
     padding: 0.68rem;
   }
 
+  .app-shell.mode-explore {
+    padding-bottom: calc(2.75rem + env(safe-area-inset-bottom));
+  }
+
   .terminal-landing {
     gap: 1.55rem;
+  }
+
+  .control-bar {
+    margin-left: 0.82rem;
+    gap: 0.52rem 0.85rem;
+  }
+
+  .toggle-label,
+  .toggle-button {
+    font-size: 0.81rem;
+  }
+
+  .toggle-button {
+    padding: 0.2rem 0.4rem;
   }
 
   .terminal-nav {
@@ -323,5 +561,36 @@ a:hover {
   .quick-links,
   .project-links {
     gap: 0.62rem;
+  }
+
+  .terminal-dock-panel {
+    width: 100%;
+    max-height: min(46vh, 280px);
+  }
+
+  .explore-terminal-output {
+    max-height: calc(min(46vh, 280px) - 2rem);
+    min-height: 114px;
+    padding: 0.56rem 0.62rem;
+  }
+
+  .explore-terminal-command,
+  .explore-terminal-line,
+  .explore-terminal-input {
+    font-size: 0.79rem;
+  }
+
+  .explore-terminal-input-row {
+    padding: 0.38rem 0.62rem;
+  }
+
+  .terminal-dock-bar {
+    height: 1.92rem;
+    padding: 0 0.62rem;
+    font-size: 0.76rem;
+  }
+
+  .terminal-dock-shortcut {
+    font-size: 0.73rem;
   }
 }
