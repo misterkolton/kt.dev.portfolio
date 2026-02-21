@@ -126,6 +126,18 @@ function CommandHeading({ command }: { command: string }) {
   )
 }
 
+function TerminalNav() {
+  return (
+    <nav className="terminal-nav" aria-label="Section navigation">
+      <span className="terminal-nav-label">jump:</span>
+      <a href="#about">about</a>
+      <a href="#projects">projects</a>
+      <a href="#terminal-project">terminal-project</a>
+      <a href="#contact">contact</a>
+    </nav>
+  )
+}
+
 function AboutSection() {
   return (
     <section id="about" className="section-block" aria-label="About">
@@ -181,7 +193,11 @@ function ProjectsSection() {
       <CommandHeading command="ls projects/" />
       <ul className="project-list">
         {PROJECTS.map((project) => (
-          <li className="project-item" key={project.name}>
+          <li
+            id={project.name === 'terminal-portfolio' ? 'terminal-project' : undefined}
+            className="project-item"
+            key={project.name}
+          >
             <div className="project-heading">
               <p className="project-name">{project.name}</p>
               <span className={`project-status project-status--${project.status}`}>
@@ -234,6 +250,7 @@ function App() {
   return (
     <main className="app-shell">
       <div className="terminal-landing">
+        <TerminalNav />
         <AboutSection />
         <ExperienceSection />
         <ProjectsSection />
