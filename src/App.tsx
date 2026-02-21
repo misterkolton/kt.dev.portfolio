@@ -1,105 +1,32 @@
-import {
-  type FormEvent,
-  type KeyboardEvent,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
-
-type SectionId = 'about' | 'projects' | 'contact'
-type CommandName = 'help' | 'about' | 'projects' | 'contact' | 'open' | 'clear'
-
-type CommandResult =
-  | { kind: 'lines'; lines: string[] }
-  | { kind: 'section'; sectionId: SectionId }
-  | { kind: 'clear' }
-
-type HistoryItem =
-  | { id: number; kind: 'command'; command: string }
-  | { id: number; kind: 'lines'; lines: string[] }
-
-type Project = {
-  name: string
-  description: string
-  links: { label: string; href: string }[]
-}
-
-type ContactLink = {
+type QuickLink = {
   label: string
-  value: string
   href: string
 }
 
-const INTRO_LINES = [
-  'Welcome to kolton.dev.',
-  "Type 'help' to see available commands.",
-]
-
-const HELP_LINES = [
-  'Available commands:',
-  'about      open background section',
-  'projects   open project highlights',
-  'contact    open contact links',
-  'open       open <about|projects|contact>',
-  'clear      reset terminal output',
-]
-
-const OPEN_USAGE_LINES = ['Usage: open <about|projects|contact>']
-
-const COMMAND_MAP: Record<CommandName, CommandResult> = {
-  help: { kind: 'lines', lines: HELP_LINES },
-  about: { kind: 'section', sectionId: 'about' },
-  projects: { kind: 'section', sectionId: 'projects' },
-  contact: { kind: 'section', sectionId: 'contact' },
-  open: { kind: 'lines', lines: OPEN_USAGE_LINES },
-  clear: { kind: 'clear' },
+type ExperienceItem = {
+  area: string
+  title: string
+  summary: string
 }
 
-const COMMAND_SUGGESTIONS = Object.keys(COMMAND_MAP).sort()
+type ProjectStatus = 'live' | 'active' | 'planned'
 
-const COMMAND_ALIASES: Record<string, CommandName> = {
-  '?': 'help',
-  ls: 'help',
+type ProjectItem = {
+  name: string
+  status: ProjectStatus
+  summary: string
+  tags: string[]
+  links: QuickLink[]
 }
 
-const PROJECTS: Project[] = [
-  {
-    name: 'kt.dev portfolio',
-    description:
-      'Terminal-style portfolio built with React, TypeScript, and Vite. Focused on clean interactions and fast load times.',
-    links: [
-      { label: 'live', href: 'https://kolton.dev' },
-      {
-        label: 'source',
-        href: 'https://github.com/misterkolton/kt.dev.portfolio',
-      },
-    ],
-  },
-  {
-    name: 'open-source sandbox',
-    description:
-      'Collection of active experiments and archived prototypes used to test interface and tooling ideas.',
-    links: [{ label: 'github', href: 'https://github.com/misterkolton' }],
-  },
-]
+type PostItem = {
+  date: string
+  title: string
+  summary: string
+}
 
-const CONTACT_LINKS: ContactLink[] = [
-  {
-    label: 'website',
-    value: 'kolton.dev',
-    href: 'https://kolton.dev',
-  },
-  {
-    label: 'github',
-    value: 'github.com/misterkolton',
-    href: 'https://github.com/misterkolton',
-  },
-  {
-    label: 'source',
-    value: 'kt.dev.portfolio',
-    href: 'https://github.com/misterkolton/kt.dev.portfolio',
-  },
-]
+const ABOUT_LEAD =
+  'Software engineer building direct-user products with ownership that starts in discovery and continues through production.'
 
 const ABOUT_PARAGRAPHS = [
   'I build software that users interact with directly, and I take responsibility for how those systems behave in production.',
@@ -109,86 +36,166 @@ const ABOUT_PARAGRAPHS = [
   'I value clarity in systems and in decisions. I think about how software is understood months or years later, not just how it works at launch. I am looking for teams building complex products, tackling ambiguous problems, and valuing engineers who can move from uncertainty to execution with sound judgment.',
 ] as const
 
-const DEFAULT_VISIBLE_SECTIONS: SectionId[] = ['about']
-
-let historyId = 0
-
-const nextHistoryId = () => {
-  historyId += 1
-  return historyId
-}
-
-const buildInitialHistory = (): HistoryItem[] => [
-  { id: nextHistoryId(), kind: 'lines', lines: INTRO_LINES },
+const QUICK_LINKS: QuickLink[] = [
+  { label: 'github', href: 'https://github.com/misterkolton' },
+  { label: 'linkedin', href: 'https://www.linkedin.com/in/koltonthompson/' },
+  { label: 'source', href: 'https://github.com/misterkolton/kt.dev.portfolio' },
 ]
 
-const isCommandName = (value: string): value is CommandName => value in COMMAND_MAP
+const EXPERIENCE: ExperienceItem[] = [
+  {
+    area: 'platform/',
+    title: 'Resilient product foundations',
+    summary:
+      'Shipped core workflows spanning UI and service layers while protecting reliability as feature load increased.',
+  },
+  {
+    area: 'performance/',
+    title: 'Editor and runtime optimization',
+    summary:
+      'Improved latency and rendering behavior in interaction-heavy surfaces where responsiveness mattered to adoption.',
+  },
+  {
+    area: 'commerce/',
+    title: 'Payment and risk flows',
+    summary:
+      'Balanced delivery speed with operational safety across checkout logic, fraud controls, and integration boundaries.',
+  },
+  {
+    area: 'tooling/',
+    title: 'Shared systems and release confidence',
+    summary:
+      'Built typed UI primitives and release workflows that helped teams ship faster without drifting from standards.',
+  },
+]
 
-const isSectionId = (value: string): value is SectionId =>
-  value === 'about' || value === 'projects' || value === 'contact'
+const PROJECTS: ProjectItem[] = [
+  {
+    name: 'terminal-portfolio',
+    status: 'live',
+    summary:
+      'The previous terminal command interface for this site, kept as a working project and reference implementation.',
+    tags: ['react', 'typescript', 'vite', 'vercel'],
+    links: [
+      { label: 'live', href: 'https://kolton.dev' },
+      {
+        label: 'source',
+        href: 'https://github.com/misterkolton/kt.dev.portfolio',
+      },
+    ],
+  },
+  {
+    name: 'incident-playbook-kit',
+    status: 'active',
+    summary:
+      'Practical templates and runbook patterns for triage, communication, and post-incident system hardening.',
+    tags: ['ops', 'reliability', 'playbooks'],
+    links: [{ label: 'github', href: 'https://github.com/misterkolton' }],
+  },
+  {
+    name: 'service-contract-lab',
+    status: 'planned',
+    summary:
+      'A sandbox for testing versioned API contracts and backward-compatibility checks before release windows.',
+    tags: ['api', 'contracts', 'testing'],
+    links: [{ label: 'github', href: 'https://github.com/misterkolton' }],
+  },
+]
 
-const resolveCommandName = (value: string): CommandName | null => {
-  const mappedValue = COMMAND_ALIASES[value] ?? value
-  if (!isCommandName(mappedValue)) {
-    return null
-  }
+const POSTS: PostItem[] = [
+  {
+    date: 'Feb 2026',
+    title: 'Designing for maintainers, not just launch day',
+    summary:
+      'How early architecture decisions reduce incident frequency and lower long-term team cognitive load.',
+  },
+  {
+    date: 'Jan 2026',
+    title: 'From regression to guardrail in one release cycle',
+    summary:
+      'A pattern for converting production bugs into durable tests and safer rollout gates.',
+  },
+]
 
-  return mappedValue
-}
-
-const sharedPrefix = (values: string[]): string => {
-  const [firstValue, ...restValues] = values
-  if (!firstValue) {
-    return ''
-  }
-
-  let prefix = firstValue
-  for (const value of restValues) {
-    while (!value.startsWith(prefix)) {
-      prefix = prefix.slice(0, -1)
-      if (!prefix) {
-        return ''
-      }
-    }
-  }
-
-  return prefix
+function CommandHeading({ command }: { command: string }) {
+  return (
+    <p className="command-heading">
+      <span className="prompt-marker">&gt;</span>
+      <span>{command}</span>
+    </p>
+  )
 }
 
 function AboutSection() {
   return (
-    <section id="about" className="terminal-section" aria-label="About section">
-      <h2 className="section-title">about</h2>
-      {ABOUT_PARAGRAPHS.map((paragraph) => (
-        <p className="section-copy" key={paragraph}>
-          {paragraph}
-        </p>
-      ))}
+    <section id="about" className="section-block" aria-label="About">
+      <CommandHeading command="cat about.txt" />
+      <h1 className="hero-name">Kolton Thompson</h1>
+      <p className="hero-lead">{ABOUT_LEAD}</p>
+      <div className="about-copy">
+        {ABOUT_PARAGRAPHS.map((paragraph) => (
+          <p key={paragraph}>{paragraph}</p>
+        ))}
+      </div>
+      <div id="contact" className="quick-links" aria-label="Contact links">
+        {QUICK_LINKS.map((link) => (
+          <a
+            key={link.label}
+            href={link.href}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {link.label}
+          </a>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function ExperienceSection() {
+  return (
+    <section className="section-block" aria-label="Experience">
+      <CommandHeading command="ls experience/" />
+      <ul className="entry-list">
+        {EXPERIENCE.map((entry) => (
+          <li className="entry-item" key={entry.area}>
+            <p className="entry-area">{entry.area}</p>
+            <div className="entry-content">
+              <p className="entry-title">{entry.title}</p>
+              <p className="entry-summary">{entry.summary}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <a className="section-link" href="https://kolton.dev" target="_blank" rel="noreferrer">
+        -&gt; view full resume
+      </a>
     </section>
   )
 }
 
 function ProjectsSection() {
   return (
-    <section
-      id="projects"
-      className="terminal-section"
-      aria-label="Projects section"
-    >
-      <h2 className="section-title">projects</h2>
-      <ul className="resource-list">
+    <section id="projects" className="section-block" aria-label="Projects">
+      <CommandHeading command="ls projects/" />
+      <ul className="project-list">
         {PROJECTS.map((project) => (
-          <li className="resource-item" key={project.name}>
-            <div className="resource-row">
-              <p className="resource-label">name</p>
-              <p className="resource-value">{project.name}</p>
+          <li className="project-item" key={project.name}>
+            <div className="project-heading">
+              <p className="project-name">{project.name}</p>
+              <span className={`project-status project-status--${project.status}`}>
+                [{project.status}]
+              </span>
             </div>
-            <p className="resource-description">{project.description}</p>
-            <div className="link-row">
+            <p className="project-summary">{project.summary}</p>
+            <p className="project-tags">
+              {project.tags.map((tag) => `#${tag}`).join(' ')}
+            </p>
+            <div className="project-links">
               {project.links.map((link) => (
                 <a
-                  className="link-pill"
-                  key={link.href}
+                  key={`${project.name}-${link.label}`}
                   href={link.href}
                   target="_blank"
                   rel="noreferrer"
@@ -204,23 +211,17 @@ function ProjectsSection() {
   )
 }
 
-function ContactSection() {
+function PostsSection() {
   return (
-    <section id="contact" className="terminal-section" aria-label="Contact section">
-      <h2 className="section-title">contact</h2>
-      <ul className="resource-list">
-        {CONTACT_LINKS.map((item) => (
-          <li className="resource-item" key={item.label}>
-            <div className="resource-row">
-              <p className="resource-label">{item.label}</p>
-              <a
-                className="resource-link"
-                href={item.href}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {item.value}
-              </a>
+    <section className="section-block" aria-label="Posts">
+      <CommandHeading command="ls posts/" />
+      <ul className="post-list">
+        {POSTS.map((post) => (
+          <li className="post-item" key={post.title}>
+            <p className="post-date">{post.date}</p>
+            <div className="post-content">
+              <p className="post-title">{post.title}</p>
+              <p className="post-summary">{post.summary}</p>
             </div>
           </li>
         ))}
@@ -229,309 +230,15 @@ function ContactSection() {
   )
 }
 
-function renderSection(sectionId: SectionId) {
-  switch (sectionId) {
-    case 'about':
-      return <AboutSection />
-    case 'projects':
-      return <ProjectsSection />
-    case 'contact':
-      return <ContactSection />
-    default:
-      return null
-  }
-}
-
 function App() {
-  const [history, setHistory] = useState<HistoryItem[]>(() => buildInitialHistory())
-  const [visibleSections, setVisibleSections] = useState<SectionId[]>(
-    DEFAULT_VISIBLE_SECTIONS,
-  )
-  const [commandInput, setCommandInput] = useState('')
-
-  const outputRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
-
-  useEffect(() => {
-    const outputElement = outputRef.current
-    if (!outputElement) {
-      return
-    }
-
-    outputElement.scrollTop = outputElement.scrollHeight
-  }, [history, visibleSections])
-
-  const appendOutputLines = (lines: string[]) => {
-    setHistory((previousHistory) => [
-      ...previousHistory,
-      { id: nextHistoryId(), kind: 'lines', lines },
-    ])
-  }
-
-  const handleCommandAutocomplete = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== 'Tab') {
-      return
-    }
-
-    event.preventDefault()
-
-    const normalizedInput = commandInput.trim().toLowerCase()
-
-    if (!normalizedInput) {
-      appendOutputLines([`Available commands: ${COMMAND_SUGGESTIONS.join(', ')}`])
-      return
-    }
-
-    if (normalizedInput.startsWith('open')) {
-      const hasTrailingSpace = commandInput.endsWith(' ')
-      const [, partialSection = ''] = normalizedInput.split(/\s+/, 2)
-      const sectionPrefix =
-        hasTrailingSpace && normalizedInput === 'open'
-          ? ''
-          : partialSection
-
-      const sectionMatches = (
-        ['about', 'projects', 'contact'] as const
-      ).filter((section) => section.startsWith(sectionPrefix))
-
-      if (sectionMatches.length === 0) {
-        appendOutputLines([`No completions for: ${normalizedInput}`])
-        return
-      }
-
-      if (sectionMatches.length === 1) {
-        const [match] = sectionMatches
-        setCommandInput(`open ${match}`)
-        return
-      }
-
-      const commonPrefix = sharedPrefix(sectionMatches)
-      if (commonPrefix.length > sectionPrefix.length) {
-        setCommandInput(`open ${commonPrefix}`)
-        return
-      }
-
-      appendOutputLines([
-        `Completions: ${sectionMatches.map((match) => `open ${match}`).join(', ')}`,
-      ])
-      return
-    }
-
-    if (normalizedInput.includes(' ')) {
-      return
-    }
-
-    if (COMMAND_SUGGESTIONS.includes(normalizedInput)) {
-      return
-    }
-
-    const matches = COMMAND_SUGGESTIONS.filter((command) =>
-      command.startsWith(normalizedInput),
-    )
-
-    if (matches.length === 0) {
-      appendOutputLines([`No completions for: ${normalizedInput}`])
-      return
-    }
-
-    if (matches.length === 1) {
-      setCommandInput(matches[0] ?? normalizedInput)
-      return
-    }
-
-    const commonPrefix = sharedPrefix(matches)
-    if (commonPrefix.length > normalizedInput.length) {
-      setCommandInput(commonPrefix)
-      return
-    }
-
-    appendOutputLines([`Completions: ${matches.join(', ')}`])
-  }
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-
-    const rawCommand = commandInput.trim()
-    if (!rawCommand) {
-      return
-    }
-
-    setCommandInput('')
-
-    const normalizedCommand = rawCommand.toLowerCase()
-    const [commandName, commandArg = ''] = normalizedCommand.split(/\s+/, 2)
-    const resolvedCommand = resolveCommandName(commandName ?? '')
-
-    if (!resolvedCommand) {
-      setHistory((previousHistory) => [
-        ...previousHistory,
-        { id: nextHistoryId(), kind: 'command', command: rawCommand },
-        {
-          id: nextHistoryId(),
-          kind: 'lines',
-          lines: [
-            `Command not found: ${rawCommand}`,
-            "Type 'help' to list available commands.",
-          ],
-        },
-      ])
-      return
-    }
-
-    if (resolvedCommand === 'open') {
-      if (!commandArg) {
-        setHistory((previousHistory) => [
-          ...previousHistory,
-          { id: nextHistoryId(), kind: 'command', command: rawCommand },
-          { id: nextHistoryId(), kind: 'lines', lines: OPEN_USAGE_LINES },
-        ])
-        return
-      }
-
-      if (!isSectionId(commandArg)) {
-        setHistory((previousHistory) => [
-          ...previousHistory,
-          { id: nextHistoryId(), kind: 'command', command: rawCommand },
-          {
-            id: nextHistoryId(),
-            kind: 'lines',
-            lines: [
-              `Unknown open target: ${commandArg}`,
-              'Try: open about, open projects, or open contact',
-            ],
-          },
-        ])
-        return
-      }
-
-      setVisibleSections((previousSections) => {
-        if (previousSections.includes(commandArg)) {
-          return previousSections
-        }
-
-        return [...previousSections, commandArg]
-      })
-
-      setHistory((previousHistory) => [
-        ...previousHistory,
-        { id: nextHistoryId(), kind: 'command', command: rawCommand },
-        {
-          id: nextHistoryId(),
-          kind: 'lines',
-          lines: [`Showing ${commandArg}.`],
-        },
-      ])
-      return
-    }
-
-    const commandResult = COMMAND_MAP[resolvedCommand]
-
-    if (commandResult.kind === 'clear') {
-      setHistory(buildInitialHistory())
-      setVisibleSections(DEFAULT_VISIBLE_SECTIONS)
-      return
-    }
-
-    if (commandResult.kind === 'section') {
-      setVisibleSections((previousSections) => {
-        if (previousSections.includes(commandResult.sectionId)) {
-          return previousSections
-        }
-
-        return [...previousSections, commandResult.sectionId]
-      })
-
-      setHistory((previousHistory) => [
-        ...previousHistory,
-        { id: nextHistoryId(), kind: 'command', command: rawCommand },
-        {
-          id: nextHistoryId(),
-          kind: 'lines',
-          lines: [`Showing ${commandResult.sectionId}.`],
-        },
-      ])
-      return
-    }
-
-    setHistory((previousHistory) => [
-      ...previousHistory,
-      { id: nextHistoryId(), kind: 'command', command: rawCommand },
-      { id: nextHistoryId(), kind: 'lines', lines: commandResult.lines },
-    ])
-  }
-
   return (
     <main className="app-shell">
-      <section className="terminal-window" aria-label="Terminal portfolio interface">
-        <header className="terminal-topbar">
-          <div className="window-controls" aria-hidden="true">
-            <span className="window-dot window-dot--red" />
-            <span className="window-dot window-dot--yellow" />
-            <span className="window-dot window-dot--green" />
-          </div>
-          <p className="terminal-title">kolton.dev :: portfolio</p>
-        </header>
-
-        <div
-          className="terminal-body"
-          ref={outputRef}
-          onClick={() => inputRef.current?.focus()}
-        >
-          {history.map((item) => {
-            if (item.kind === 'command') {
-              return (
-                <p className="command-line" key={item.id}>
-                  <span className="prompt">kolton@dev:~$</span>
-                  <span className="command-text">{item.command}</span>
-                </p>
-              )
-            }
-
-            return (
-              <div className="terminal-block" key={item.id}>
-                {item.lines.map((line, index) => (
-                  <p className="terminal-line" key={`${item.id}-${index}`}>
-                    {line}
-                  </p>
-                ))}
-              </div>
-            )
-          })}
-
-          {visibleSections.map((sectionId) => (
-            <div className="terminal-block" key={sectionId}>
-              {renderSection(sectionId)}
-            </div>
-          ))}
-        </div>
-
-        <form className="terminal-input-row" onSubmit={handleSubmit}>
-          <label className="sr-only" htmlFor="terminal-command">
-            Terminal command
-          </label>
-          <span className="prompt" aria-hidden="true">
-            kolton@dev:~$
-          </span>
-          <input
-            id="terminal-command"
-            className="terminal-input"
-            value={commandInput}
-            onChange={(event) => setCommandInput(event.target.value)}
-            onKeyDown={handleCommandAutocomplete}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            placeholder="type a command (help)"
-            ref={inputRef}
-          />
-          <span className="cursor" aria-hidden="true" />
-        </form>
-      </section>
+      <div className="terminal-landing">
+        <AboutSection />
+        <ExperienceSection />
+        <ProjectsSection />
+        <PostsSection />
+      </div>
     </main>
   )
 }
