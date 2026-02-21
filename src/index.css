@@ -42,6 +42,10 @@ a:hover {
   --title: #e8edf5;
   --tag: #85b8dd;
   --date: #839ac0;
+  --dock-bar: #0e8a97;
+  --dock-text: #e9fbff;
+  --dock-pill-bg: rgb(4 50 58 / 26%);
+  --dock-pill-border: rgb(233 251 255 / 30%);
   min-height: 100%;
   padding: clamp(0.85rem, 2.5vw, 1.6rem) clamp(0.75rem, 2.4vw, 1.7rem);
   background: var(--bg);
@@ -61,6 +65,10 @@ a:hover {
   --title: #121926;
   --tag: #3f709f;
   --date: #5a7395;
+  --dock-bar: #2f7f94;
+  --dock-text: #eff9ff;
+  --dock-pill-bg: rgb(255 255 255 / 28%);
+  --dock-pill-border: rgb(239 249 255 / 60%);
 }
 
 .app-shell.mode-explore {
@@ -338,6 +346,13 @@ a:hover {
   overflow-wrap: anywhere;
 }
 
+.confetti-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+
 .terminal-dock {
   position: fixed;
   inset: auto 0 0;
@@ -433,6 +448,111 @@ a:hover {
   color: var(--muted);
 }
 
+.fre-tip,
+.modules-popover {
+  pointer-events: auto;
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom) + 2.4rem);
+  border: 1px solid var(--border);
+  background: rgb(9 14 23 / 98%);
+  color: var(--text);
+  width: min(332px, calc(100vw - 2rem));
+  padding: 0.5rem 0.58rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.app-shell.theme-light .fre-tip,
+.app-shell.theme-light .modules-popover {
+  background: rgb(239 245 253 / 98%);
+}
+
+.fre-tip {
+  left: calc(env(safe-area-inset-left) + 0.95rem);
+}
+
+.fre-tip-copy {
+  margin: 0;
+  color: var(--muted);
+}
+
+.fre-tip-copy code {
+  color: var(--text);
+}
+
+.fre-tip-actions {
+  margin-top: 0.38rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.38rem;
+}
+
+.fre-tip-button {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--command);
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  padding: 0.16rem 0.4rem;
+  cursor: pointer;
+}
+
+.fre-tip-button:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.modules-popover {
+  right: calc(env(safe-area-inset-right) + 0.95rem);
+}
+
+.modules-popover-title,
+.modules-popover-progress,
+.modules-popover-footnote {
+  margin: 0;
+}
+
+.modules-popover-title {
+  color: var(--command);
+  text-transform: lowercase;
+}
+
+.modules-popover-progress {
+  margin-top: 0.16rem;
+  color: var(--text);
+}
+
+.modules-popover-list {
+  margin: 0.46rem 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.18rem;
+}
+
+.modules-popover-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.46rem;
+}
+
+.modules-popover-state {
+  color: var(--muted);
+}
+
+.modules-popover-state[data-active='true'] {
+  color: var(--accent);
+}
+
+.modules-popover-label {
+  color: var(--muted);
+}
+
+.modules-popover-footnote {
+  color: var(--command);
+}
+
 .terminal-dock-bar {
   pointer-events: auto;
   height: 2.02rem;
@@ -442,15 +562,18 @@ a:hover {
   gap: 0.75rem;
   padding: 0 calc(env(safe-area-inset-right) + 0.95rem) 0
     calc(env(safe-area-inset-left) + 0.95rem);
-  background: #0e8a97;
-  color: #e9fbff;
+  background: var(--dock-bar);
+  color: var(--dock-text);
   border-top: 1px solid rgb(0 0 0 / 22%);
   font-size: 0.82rem;
 }
 
-.app-shell.theme-light .terminal-dock-bar {
-  background: #2f7f94;
-  color: #eff9ff;
+.terminal-dock-bar-left,
+.terminal-dock-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.68rem;
+  min-width: 0;
 }
 
 .terminal-dock-toggle {
@@ -469,7 +592,8 @@ a:hover {
   text-decoration: underline;
 }
 
-.terminal-dock-toggle:focus-visible {
+.terminal-dock-toggle:focus-visible,
+.terminal-modules-pill:focus-visible {
   outline: 1px solid currentColor;
   outline-offset: 2px;
 }
@@ -479,8 +603,29 @@ a:hover {
   letter-spacing: 0.02em;
 }
 
+.terminal-modules-pill {
+  border: 1px solid var(--dock-pill-border);
+  background: var(--dock-pill-bg);
+  color: inherit;
+  font: inherit;
+  font-size: 0.74rem;
+  line-height: 1.2;
+  padding: 0.12rem 0.48rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.terminal-modules-pill[data-unlocked='true'] {
+  background: rgb(47 171 133 / 24%);
+}
+
 .terminal-dock-shortcut {
   opacity: 0.9;
+  white-space: nowrap;
 }
 
 @media (max-width: 760px) {
@@ -584,10 +729,24 @@ a:hover {
     padding: 0.38rem 0.62rem;
   }
 
+  .fre-tip,
+  .modules-popover {
+    left: 0.62rem;
+    right: 0.62rem;
+    width: auto;
+    bottom: calc(env(safe-area-inset-bottom) + 2.28rem);
+    font-size: 0.74rem;
+  }
+
   .terminal-dock-bar {
     height: 1.92rem;
     padding: 0 0.62rem;
     font-size: 0.76rem;
+  }
+
+  .terminal-modules-pill {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.42rem;
   }
 
   .terminal-dock-shortcut {
