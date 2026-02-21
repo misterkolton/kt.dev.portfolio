@@ -1,7 +1,9 @@
 import {
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -35,6 +37,8 @@ type PostItem = {
 
 type ThemeMode = 'dark' | 'light'
 type ProfileMode = 'professional' | 'explore'
+type ExploreLensMode = 'standard' | 'developer' | 'client' | 'design'
+type ExploreSectionId = 'about' | 'experience' | 'projects' | 'posts'
 type TerminalSectionId = 'about' | 'projects' | 'contact'
 type TerminalCommand = 'help' | 'about' | 'projects' | 'contact' | 'open' | 'clear'
 
@@ -49,8 +53,25 @@ type ToggleGroupProps<T extends string> = {
   onChange: (value: T) => void
 }
 
+type LensOption = {
+  value: ExploreLensMode
+  label: string
+  description: string
+}
+
+type ExploreSectionOpenState = Record<ExploreSectionId, boolean>
+
+type LensConfig = {
+  sectionOrder: ExploreSectionId[]
+  sectionDefaults: ExploreSectionOpenState
+  terminalDefaultOpen: boolean
+  terminalProminent: boolean
+  showProjectTags: boolean
+}
+
 const THEME_STORAGE_KEY = 'kt-theme'
 const PROFILE_STORAGE_KEY = 'kt-profile-mode'
+const EXPLORE_LENS_STORAGE_KEY = 'exploreModeLens'
 
 const ABOUT_LEAD =
   'Software engineer building direct-user products with ownership that starts in discovery and continues through production.'
@@ -144,6 +165,94 @@ const POSTS: PostItem[] = [
   },
 ]
 
+const EXPLORE_SECTION_IDS: ExploreSectionId[] = [
+  'about',
+  'experience',
+  'projects',
+  'posts',
+]
+
+const LENS_OPTIONS: LensOption[] = [
+  {
+    value: 'standard',
+    label: 'Standard',
+    description: 'Clean browsing view.',
+  },
+  {
+    value: 'developer',
+    label: 'Developer',
+    description: 'Technical lens + command access.',
+  },
+  {
+    value: 'client',
+    label: 'Client',
+    description: 'Outcomes and narrative first.',
+  },
+  {
+    value: 'design',
+    label: 'Design',
+    description: 'UI decisions and system focus.',
+  },
+]
+
+const LENS_LABELS: Record<ExploreLensMode, string> = {
+  standard: 'Standard',
+  developer: 'Developer',
+  client: 'Client',
+  design: 'Design',
+}
+
+const LENS_CONFIG: Record<ExploreLensMode, LensConfig> = {
+  standard: {
+    sectionOrder: ['about', 'experience', 'projects', 'posts'],
+    sectionDefaults: {
+      about: true,
+      experience: true,
+      projects: true,
+      posts: true,
+    },
+    terminalDefaultOpen: false,
+    terminalProminent: false,
+    showProjectTags: false,
+  },
+  developer: {
+    sectionOrder: ['projects', 'experience', 'posts', 'about'],
+    sectionDefaults: {
+      about: false,
+      experience: false,
+      projects: true,
+      posts: true,
+    },
+    terminalDefaultOpen: true,
+    terminalProminent: true,
+    showProjectTags: true,
+  },
+  client: {
+    sectionOrder: ['about', 'experience', 'projects', 'posts'],
+    sectionDefaults: {
+      about: true,
+      experience: true,
+      projects: true,
+      posts: false,
+    },
+    terminalDefaultOpen: false,
+    terminalProminent: false,
+    showProjectTags: false,
+  },
+  design: {
+    sectionOrder: ['projects', 'about', 'experience', 'posts'],
+    sectionDefaults: {
+      about: true,
+      experience: false,
+      projects: true,
+      posts: true,
+    },
+    terminalDefaultOpen: false,
+    terminalProminent: false,
+    showProjectTags: true,
+  },
+}
+
 const TERMINAL_COMMANDS: TerminalCommand[] = [
   'help',
   'about',
@@ -165,7 +274,144 @@ const TERMINAL_INTRO_LINES = [
   "type 'help' to list commands",
 ]
 
-const TERMINAL_HELP_LINES = [
+const TERMINAL_ENGINEERING_TAGS = new Set([
+  'react',
+  'typescript',
+  'vite',
+  'api',
+  'contracts',
+  'testing',
+  'reliability',
+  'ops',
+  'playbooks',
+  'vercel',
+])
+
+const TERMINAL_IMPACT_TAGS = new Set(['reliability', 'ops', 'playbooks'])
+
+const TERMINAL_DESIGN_TAGS = new Set([
+  'design',
+  'system',
+  'components',
+  'ui',
+  'ux',
+  'typography',
+  'layout',
+  'accessibility',
+])
+
+const STATUS_PRIORITY: Record<ProjectStatus, number> = {
+  live: 3,
+  active: 2,
+  planned: 1,
+}
+
+const OPEN_USAGE_LINES = ['Usage: open <about|projects|contact>']
+
+const hasWindow = (): boolean => typeof window !== 'undefined'
+
+const safeLocalStorageGet = (key: string): string | null => {
+  if (!hasWindow()) {
+    return null
+  }
+
+  try {
+    return window.localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+const safeLocalStorageSet = (key: string, value: string): void => {
+  if (!hasWindow()) {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(key, value)
+  } catch {
+    // ignored intentionally
+  }
+}
+
+const isExploreLensMode = (value: string | null): value is ExploreLensMode =>
+  value === 'standard' ||
+  value === 'developer' ||
+  value === 'client' ||
+  value === 'design'
+
+const readStoredTheme = (): ThemeMode =>
+  safeLocalStorageGet(THEME_STORAGE_KEY) === 'light' ? 'light' : 'dark'
+
+const readStoredProfileMode = (): ProfileMode =>
+  safeLocalStorageGet(PROFILE_STORAGE_KEY) === 'explore' ? 'explore' : 'professional'
+
+const readStoredExploreLens = (): ExploreLensMode => {
+  const storedValue = safeLocalStorageGet(EXPLORE_LENS_STORAGE_KEY)
+  return isExploreLensMode(storedValue) ? storedValue : 'standard'
+}
+
+const countMatchingTags = (tags: string[], matcher: Set<string>): number =>
+  tags.reduce(
+    (count, tag) => (matcher.has(tag.toLowerCase()) ? count + 1 : count),
+    0,
+  )
+
+const hasLensSignal = (projects: ProjectItem[], matcher: Set<string>): boolean =>
+  projects.some((project) => countMatchingTags(project.tags, matcher) > 0)
+
+const scoreProjectForLens = (project: ProjectItem, lensMode: ExploreLensMode): number => {
+  const statusScore = STATUS_PRIORITY[project.status]
+
+  if (lensMode === 'developer') {
+    return countMatchingTags(project.tags, TERMINAL_ENGINEERING_TAGS) * 10 + statusScore
+  }
+
+  if (lensMode === 'client') {
+    return countMatchingTags(project.tags, TERMINAL_IMPACT_TAGS) * 10 + statusScore
+  }
+
+  if (lensMode === 'design') {
+    return countMatchingTags(project.tags, TERMINAL_DESIGN_TAGS) * 10 + statusScore
+  }
+
+  return statusScore
+}
+
+const getOrderedProjects = (
+  projects: ProjectItem[],
+  lensMode: ExploreLensMode,
+): ProjectItem[] => {
+  if (lensMode === 'standard') {
+    return projects
+  }
+
+  if (lensMode === 'client' && !hasLensSignal(projects, TERMINAL_IMPACT_TAGS)) {
+    return projects
+  }
+
+  if (lensMode === 'design' && !hasLensSignal(projects, TERMINAL_DESIGN_TAGS)) {
+    return projects
+  }
+
+  const rankedProjects = projects.map((project, index) => ({
+    index,
+    project,
+    score: scoreProjectForLens(project, lensMode),
+  }))
+
+  rankedProjects.sort((projectA, projectB) => {
+    if (projectB.score !== projectA.score) {
+      return projectB.score - projectA.score
+    }
+
+    return projectA.index - projectB.index
+  })
+
+  return rankedProjects.map((entry) => entry.project)
+}
+
+const buildHelpLines = (): string[] => [
   'Available commands:',
   'about      jump to about section',
   'projects   jump to projects section',
@@ -173,8 +419,6 @@ const TERMINAL_HELP_LINES = [
   'open       open <about|projects|contact>',
   'clear      clear terminal output',
 ]
-
-const OPEN_USAGE_LINES = ['Usage: open <about|projects|contact>']
 
 const isTerminalSectionId = (value: string): value is TerminalSectionId =>
   TERMINAL_SECTIONS.includes(value as TerminalSectionId)
@@ -194,6 +438,7 @@ const sharedPrefix = (values: string[]): string => {
   }
 
   let prefix = firstValue
+
   for (const value of restValues) {
     while (!value.startsWith(prefix)) {
       prefix = prefix.slice(0, -1)
@@ -206,12 +451,84 @@ const sharedPrefix = (values: string[]): string => {
   return prefix
 }
 
-function CommandHeading({ command }: { command: string }) {
+const isTypingTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  if (target.isContentEditable) {
+    return true
+  }
+
   return (
-    <p className="command-heading">
+    target.tagName === 'INPUT' ||
+    target.tagName === 'TEXTAREA' ||
+    target.tagName === 'SELECT'
+  )
+}
+
+function CommandHeading({
+  command,
+  onToggle,
+  isOpen,
+}: {
+  command: string
+  onToggle?: () => void
+  isOpen?: boolean
+}) {
+  if (!onToggle) {
+    return (
+      <p className="command-heading">
+        <span className="prompt-marker">&gt;</span>
+        <span>{command}</span>
+      </p>
+    )
+  }
+
+  return (
+    <button
+      className="command-heading command-heading-toggle"
+      type="button"
+      onClick={onToggle}
+      aria-expanded={isOpen}
+    >
       <span className="prompt-marker">&gt;</span>
       <span>{command}</span>
-    </p>
+      <span className="command-heading-caret" aria-hidden="true">
+        {isOpen ? '▾' : '▸'}
+      </span>
+    </button>
+  )
+}
+
+function SectionFrame({
+  id,
+  label,
+  command,
+  isOpen,
+  isCollapsible,
+  onToggle,
+  children,
+}: {
+  id: ExploreSectionId
+  label: string
+  command: string
+  isOpen: boolean
+  isCollapsible: boolean
+  onToggle: () => void
+  children: ReactNode
+}) {
+  return (
+    <section id={id} className="section-block" aria-label={label} data-collapsed={!isOpen}>
+      <CommandHeading
+        command={command}
+        isOpen={isOpen}
+        onToggle={isCollapsible ? onToggle : undefined}
+      />
+      <div className="section-body" hidden={!isOpen}>
+        {children}
+      </div>
+    </section>
   )
 }
 
@@ -242,7 +559,7 @@ function ToggleGroup<T extends string>({
   )
 }
 
-function ControlBar({
+function TopRightMenu({
   theme,
   onThemeChange,
   profileMode,
@@ -253,26 +570,95 @@ function ControlBar({
   profileMode: ProfileMode
   onProfileModeChange: (value: ProfileMode) => void
 }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const popoverRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      const targetNode = event.target as Node | null
+      if (!targetNode) {
+        return
+      }
+
+      if (popoverRef.current?.contains(targetNode)) {
+        return
+      }
+
+      if (triggerRef.current?.contains(targetNode)) {
+        return
+      }
+
+      setIsOpen(false)
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [isOpen])
+
   return (
-    <div className="control-bar">
-      <ToggleGroup
-        label="theme"
-        value={theme}
-        onChange={onThemeChange}
-        options={[
-          { value: 'dark', label: 'dark' },
-          { value: 'light', label: 'light' },
-        ]}
-      />
-      <ToggleGroup
-        label="mode"
-        value={profileMode}
-        onChange={onProfileModeChange}
-        options={[
-          { value: 'professional', label: 'professional' },
-          { value: 'explore', label: 'explore' },
-        ]}
-      />
+    <div className="top-right-menu">
+      <button
+        ref={triggerRef}
+        className="top-right-menu-trigger"
+        type="button"
+        aria-label="Open appearance and mode settings"
+        aria-expanded={isOpen}
+        aria-controls="top-right-menu-popover"
+        onClick={() => setIsOpen((currentValue) => !currentValue)}
+      >
+        ⋯
+      </button>
+
+      {isOpen ? (
+        <div
+          id="top-right-menu-popover"
+          ref={popoverRef}
+          className="top-right-menu-popover"
+          role="dialog"
+          aria-label="Appearance and mode settings"
+        >
+          <ToggleGroup
+            label="theme"
+            value={theme}
+            onChange={(value) => {
+              onThemeChange(value)
+              setIsOpen(false)
+            }}
+            options={[
+              { value: 'dark', label: 'dark' },
+              { value: 'light', label: 'light' },
+            ]}
+          />
+          <ToggleGroup
+            label="mode"
+            value={profileMode}
+            onChange={(value) => {
+              onProfileModeChange(value)
+              setIsOpen(false)
+            }}
+            options={[
+              { value: 'professional', label: 'overview' },
+              { value: 'explore', label: 'workspace' },
+            ]}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -289,13 +675,29 @@ function TerminalNav() {
   )
 }
 
-function AboutSection({ profileMode }: { profileMode: ProfileMode }) {
+function AboutSection({
+  profileMode,
+  isOpen,
+  isCollapsible,
+  onToggle,
+}: {
+  profileMode: ProfileMode
+  isOpen: boolean
+  isCollapsible: boolean
+  onToggle: () => void
+}) {
   const visibleParagraphs =
     profileMode === 'professional' ? ABOUT_PARAGRAPHS.slice(0, 3) : ABOUT_PARAGRAPHS
 
   return (
-    <section id="about" className="section-block" aria-label="About">
-      <CommandHeading command="cat about.txt" />
+    <SectionFrame
+      id="about"
+      label="About"
+      command="cat about.txt"
+      isOpen={isOpen}
+      isCollapsible={isCollapsible}
+      onToggle={onToggle}
+    >
       <h1 className="hero-name">Kolton Thompson</h1>
       <p className="hero-lead">{ABOUT_LEAD}</p>
       <div className="about-copy">
@@ -305,24 +707,33 @@ function AboutSection({ profileMode }: { profileMode: ProfileMode }) {
       </div>
       <div id="contact" className="quick-links" aria-label="Contact links">
         {QUICK_LINKS.map((link) => (
-          <a
-            key={link.label}
-            href={link.href}
-            target="_blank"
-            rel="noreferrer"
-          >
+          <a key={link.label} href={link.href} target="_blank" rel="noreferrer">
             {link.label}
           </a>
         ))}
       </div>
-    </section>
+    </SectionFrame>
   )
 }
 
-function ExperienceSection() {
+function ExperienceSection({
+  isOpen,
+  isCollapsible,
+  onToggle,
+}: {
+  isOpen: boolean
+  isCollapsible: boolean
+  onToggle: () => void
+}) {
   return (
-    <section className="section-block" aria-label="Experience">
-      <CommandHeading command="ls experience/" />
+    <SectionFrame
+      id="experience"
+      label="Experience"
+      command="ls experience/"
+      isOpen={isOpen}
+      isCollapsible={isCollapsible}
+      onToggle={onToggle}
+    >
       <ul className="entry-list">
         {EXPERIENCE.map((entry) => (
           <li className="entry-item" key={entry.area}>
@@ -337,16 +748,34 @@ function ExperienceSection() {
       <a className="section-link" href="https://kolton.dev" target="_blank" rel="noreferrer">
         -&gt; view full resume
       </a>
-    </section>
+    </SectionFrame>
   )
 }
 
-function ProjectsSection({ profileMode }: { profileMode: ProfileMode }) {
+function ProjectsSection({
+  projects,
+  showProjectTags,
+  isOpen,
+  isCollapsible,
+  onToggle,
+}: {
+  projects: ProjectItem[]
+  showProjectTags: boolean
+  isOpen: boolean
+  isCollapsible: boolean
+  onToggle: () => void
+}) {
   return (
-    <section id="projects" className="section-block" aria-label="Projects">
-      <CommandHeading command="ls projects/" />
+    <SectionFrame
+      id="projects"
+      label="Projects"
+      command="ls projects/"
+      isOpen={isOpen}
+      isCollapsible={isCollapsible}
+      onToggle={onToggle}
+    >
       <ul className="project-list">
-        {PROJECTS.map((project) => (
+        {projects.map((project) => (
           <li
             id={project.name === 'terminal-portfolio' ? 'terminal-project' : undefined}
             className="project-item"
@@ -359,19 +788,14 @@ function ProjectsSection({ profileMode }: { profileMode: ProfileMode }) {
               </span>
             </div>
             <p className="project-summary">{project.summary}</p>
-            {profileMode === 'explore' ? (
+            {showProjectTags ? (
               <p className="project-tags">
                 {project.tags.map((tag) => `#${tag}`).join(' ')}
               </p>
             ) : null}
             <div className="project-links">
               {project.links.map((link) => (
-                <a
-                  key={`${project.name}-${link.label}`}
-                  href={link.href}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a key={`${project.name}-${link.label}`} href={link.href} target="_blank" rel="noreferrer">
                   {link.label}
                 </a>
               ))}
@@ -379,14 +803,28 @@ function ProjectsSection({ profileMode }: { profileMode: ProfileMode }) {
           </li>
         ))}
       </ul>
-    </section>
+    </SectionFrame>
   )
 }
 
-function PostsSection() {
+function PostsSection({
+  isOpen,
+  isCollapsible,
+  onToggle,
+}: {
+  isOpen: boolean
+  isCollapsible: boolean
+  onToggle: () => void
+}) {
   return (
-    <section className="section-block" aria-label="Posts">
-      <CommandHeading command="ls posts/" />
+    <SectionFrame
+      id="posts"
+      label="Posts"
+      command="ls posts/"
+      isOpen={isOpen}
+      isCollapsible={isCollapsible}
+      onToggle={onToggle}
+    >
       <ul className="post-list">
         {POSTS.map((post) => (
           <li className="post-item" key={post.title}>
@@ -398,11 +836,19 @@ function PostsSection() {
           </li>
         ))}
       </ul>
-    </section>
+    </SectionFrame>
   )
 }
 
-function ExploreTerminal({ isOpen }: { isOpen: boolean }) {
+function ExploreTerminal({
+  isOpen,
+  focusSignal,
+  prefersReducedMotion,
+}: {
+  isOpen: boolean
+  focusSignal: number
+  prefersReducedMotion: boolean
+}) {
   const outputRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const historyIdRef = useRef(1)
@@ -410,6 +856,19 @@ function ExploreTerminal({ isOpen }: { isOpen: boolean }) {
   const nextHistoryId = () => {
     historyIdRef.current += 1
     return historyIdRef.current
+  }
+
+  const focusInput = () => {
+    const inputElement = inputRef.current
+    if (!inputElement) {
+      return
+    }
+
+    try {
+      inputElement.focus({ preventScroll: true })
+    } catch {
+      inputElement.focus()
+    }
   }
 
   const [commandInput, setCommandInput] = useState('')
@@ -422,8 +881,8 @@ function ExploreTerminal({ isOpen }: { isOpen: boolean }) {
       return
     }
 
-    inputRef.current?.focus()
-  }, [isOpen])
+    focusInput()
+  }, [isOpen, focusSignal])
 
   useEffect(() => {
     if (!isOpen) {
@@ -459,7 +918,11 @@ function ExploreTerminal({ isOpen }: { isOpen: boolean }) {
       return
     }
 
-    targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    targetElement.scrollIntoView({
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      block: 'start',
+    })
+
     appendOutputLines([`Jumped to #${sectionId}.`])
   }
 
@@ -575,7 +1038,7 @@ function ExploreTerminal({ isOpen }: { isOpen: boolean }) {
     }
 
     if (resolvedCommand === 'help') {
-      appendOutputLines(TERMINAL_HELP_LINES)
+      appendOutputLines(buildHelpLines())
       return
     }
 
@@ -602,11 +1065,7 @@ function ExploreTerminal({ isOpen }: { isOpen: boolean }) {
 
   return (
     <section className="explore-terminal" aria-label="Interactive terminal">
-      <div
-        className="explore-terminal-output"
-        ref={outputRef}
-        onClick={() => inputRef.current?.focus()}
-      >
+      <div className="explore-terminal-output" ref={outputRef} onClick={focusInput}>
         {history.map((item) => {
           if (item.kind === 'command') {
             return (
@@ -650,39 +1109,212 @@ function ExploreTerminal({ isOpen }: { isOpen: boolean }) {
 }
 
 function App() {
-  const [theme, setTheme] = useState<ThemeMode>(() => {
-    const storedTheme =
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem(THEME_STORAGE_KEY)
-        : null
+  const initialProfileMode = readStoredProfileMode()
+  const initialLensMode = readStoredExploreLens()
 
-    return storedTheme === 'light' ? 'light' : 'dark'
-  })
-  const [profileMode, setProfileMode] = useState<ProfileMode>(() => {
-    const storedProfileMode =
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem(PROFILE_STORAGE_KEY)
-        : null
+  const [theme, setTheme] = useState<ThemeMode>(() => readStoredTheme())
+  const [profileMode, setProfileMode] = useState<ProfileMode>(initialProfileMode)
+  const [exploreLensMode, setExploreLensMode] =
+    useState<ExploreLensMode>(initialLensMode)
+  const [isTerminalOpen, setIsTerminalOpen] = useState(
+    initialProfileMode === 'explore'
+      ? LENS_CONFIG[initialLensMode].terminalDefaultOpen
+      : false,
+  )
+  const [terminalFocusSignal, setTerminalFocusSignal] = useState(0)
+  const [isLensPopoverOpen, setIsLensPopoverOpen] = useState(false)
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => {
+    if (!hasWindow()) {
+      return false
+    }
 
-    return storedProfileMode === 'explore' ? 'explore' : 'professional'
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches
   })
-  const [isTerminalOpen, setIsTerminalOpen] = useState(false)
+  const [exploreSectionOpenState, setExploreSectionOpenState] =
+    useState<ExploreSectionOpenState>(() =>
+      initialProfileMode === 'explore'
+        ? LENS_CONFIG[initialLensMode].sectionDefaults
+        : LENS_CONFIG.standard.sectionDefaults,
+    )
+
+  const sectionInteractionRef = useRef<Record<ExploreSectionId, boolean>>({
+    about: false,
+    experience: false,
+    projects: false,
+    posts: false,
+  })
+  const lensPopoverRef = useRef<HTMLDivElement>(null)
+  const lensToggleRef = useRef<HTMLButtonElement>(null)
+
+  const activeLensConfig = LENS_CONFIG[exploreLensMode]
+
+  const orderedProjects = useMemo(
+    () =>
+      profileMode === 'explore'
+        ? getOrderedProjects(PROJECTS, exploreLensMode)
+        : PROJECTS,
+    [profileMode, exploreLensMode],
+  )
+
+  const sectionOrder =
+    profileMode === 'explore'
+      ? activeLensConfig.sectionOrder
+      : (['about', 'experience', 'projects'] as const)
+
+  const setExploreDefaultsForLens = (lensMode: ExploreLensMode) => {
+    const defaults = LENS_CONFIG[lensMode].sectionDefaults
+
+    setExploreSectionOpenState((previousState) => {
+      let hasChanges = false
+      const nextState: ExploreSectionOpenState = { ...previousState }
+
+      for (const sectionId of EXPLORE_SECTION_IDS) {
+        if (sectionInteractionRef.current[sectionId]) {
+          continue
+        }
+
+        if (nextState[sectionId] !== defaults[sectionId]) {
+          hasChanges = true
+          nextState[sectionId] = defaults[sectionId]
+        }
+      }
+
+      return hasChanges ? nextState : previousState
+    })
+  }
+
+  const openTerminalAndFocus = () => {
+    setIsTerminalOpen(true)
+    setTerminalFocusSignal((currentSignal) => currentSignal + 1)
+  }
 
   const handleProfileModeChange = (value: ProfileMode) => {
     setProfileMode(value)
-    if (value !== 'explore') {
-      setIsTerminalOpen(false)
+
+    if (value === 'explore') {
+      setExploreDefaultsForLens(exploreLensMode)
+      setIsTerminalOpen(LENS_CONFIG[exploreLensMode].terminalDefaultOpen)
+      return
     }
+
+    setIsTerminalOpen(false)
+    setIsLensPopoverOpen(false)
+  }
+
+  const handleExploreLensChange = (lensMode: ExploreLensMode) => {
+    setExploreLensMode(lensMode)
+    setIsLensPopoverOpen(false)
+
+    if (profileMode !== 'explore') {
+      return
+    }
+
+    setExploreDefaultsForLens(lensMode)
+    setIsTerminalOpen(LENS_CONFIG[lensMode].terminalDefaultOpen)
+  }
+
+  const handleToggleSection = (sectionId: ExploreSectionId) => {
+    sectionInteractionRef.current[sectionId] = true
+
+    setExploreSectionOpenState((previousState) => ({
+      ...previousState,
+      [sectionId]: !previousState[sectionId],
+    }))
   }
 
   useEffect(() => {
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme)
+    safeLocalStorageSet(THEME_STORAGE_KEY, theme)
     document.documentElement.style.colorScheme = theme
   }, [theme])
 
   useEffect(() => {
-    window.localStorage.setItem(PROFILE_STORAGE_KEY, profileMode)
+    safeLocalStorageSet(PROFILE_STORAGE_KEY, profileMode)
   }, [profileMode])
+
+  useEffect(() => {
+    safeLocalStorageSet(EXPLORE_LENS_STORAGE_KEY, exploreLensMode)
+  }, [exploreLensMode])
+
+  useEffect(() => {
+    if (!hasWindow()) {
+      return
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+
+    const onPreferenceChange = (event: MediaQueryListEvent) => {
+      setPrefersReducedMotion(event.matches)
+    }
+
+    mediaQuery.addEventListener('change', onPreferenceChange)
+
+    return () => {
+      mediaQuery.removeEventListener('change', onPreferenceChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isLensPopoverOpen) {
+      return
+    }
+
+    const selectedOption = lensPopoverRef.current?.querySelector<HTMLButtonElement>(
+      'button[aria-checked="true"]',
+    )
+
+    if (selectedOption) {
+      const focusFrame = window.requestAnimationFrame(() => {
+        try {
+          selectedOption.focus({ preventScroll: true })
+        } catch {
+          selectedOption.focus()
+        }
+      })
+
+      return () => {
+        window.cancelAnimationFrame(focusFrame)
+      }
+    }
+
+    return undefined
+  }, [isLensPopoverOpen])
+
+  useEffect(() => {
+    if (!isLensPopoverOpen) {
+      return
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      const targetNode = event.target as Node | null
+      if (!targetNode) {
+        return
+      }
+
+      if (lensPopoverRef.current?.contains(targetNode)) {
+        return
+      }
+
+      if (lensToggleRef.current?.contains(targetNode)) {
+        return
+      }
+
+      setIsLensPopoverOpen(false)
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsLensPopoverOpen(false)
+      }
+    }
+
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [isLensPopoverOpen])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -690,12 +1322,32 @@ function App() {
         return
       }
 
-      if ((!event.metaKey && !event.ctrlKey) || event.key.toLowerCase() !== 'j') {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'j') {
+        event.preventDefault()
+        setIsTerminalOpen((currentValue) => !currentValue)
         return
       }
 
-      event.preventDefault()
-      setIsTerminalOpen((currentValue) => !currentValue)
+      if (exploreLensMode !== 'developer') {
+        return
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        openTerminalAndFocus()
+        return
+      }
+
+      if (
+        event.key === '/' &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !isTypingTarget(event.target)
+      ) {
+        event.preventDefault()
+        openTerminalAndFocus()
+      }
     }
 
     window.addEventListener('keydown', onKeyDown)
@@ -703,43 +1355,144 @@ function App() {
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [profileMode])
+  }, [profileMode, exploreLensMode])
+
+  const isExploreMode = profileMode === 'explore'
+
+  const sectionIsOpen = (sectionId: ExploreSectionId): boolean =>
+    isExploreMode ? exploreSectionOpenState[sectionId] : true
+
+  const sectionIsCollapsible = isExploreMode
+
+  const renderedSections: Record<ExploreSectionId, ReactNode> = {
+    about: (
+      <AboutSection
+        profileMode={profileMode}
+        isOpen={sectionIsOpen('about')}
+        isCollapsible={sectionIsCollapsible}
+        onToggle={() => handleToggleSection('about')}
+      />
+    ),
+    experience: (
+      <ExperienceSection
+        isOpen={sectionIsOpen('experience')}
+        isCollapsible={sectionIsCollapsible}
+        onToggle={() => handleToggleSection('experience')}
+      />
+    ),
+    projects: (
+      <ProjectsSection
+        projects={orderedProjects}
+        showProjectTags={isExploreMode ? activeLensConfig.showProjectTags : false}
+        isOpen={sectionIsOpen('projects')}
+        isCollapsible={sectionIsCollapsible}
+        onToggle={() => handleToggleSection('projects')}
+      />
+    ),
+    posts: (
+      <PostsSection
+        isOpen={sectionIsOpen('posts')}
+        isCollapsible={sectionIsCollapsible}
+        onToggle={() => handleToggleSection('posts')}
+      />
+    ),
+  }
 
   return (
     <main className={`app-shell theme-${theme} mode-${profileMode}`}>
       <div className="terminal-landing">
-        <ControlBar
+        <TopRightMenu
           theme={theme}
           onThemeChange={setTheme}
           profileMode={profileMode}
           onProfileModeChange={handleProfileModeChange}
         />
         <TerminalNav />
-        <AboutSection profileMode={profileMode} />
-        <ExperienceSection />
-        <ProjectsSection profileMode={profileMode} />
-        {profileMode === 'explore' ? <PostsSection /> : null}
+
+        {sectionOrder.map((sectionId) => (
+          <div key={sectionId}>{renderedSections[sectionId]}</div>
+        ))}
       </div>
 
-      {profileMode === 'explore' ? (
+      {isExploreMode ? (
         <div className="terminal-dock" data-open={isTerminalOpen}>
-          <div id="explore-terminal-panel" className="terminal-dock-panel" hidden={!isTerminalOpen}>
-            <ExploreTerminal isOpen={isTerminalOpen} />
-          </div>
-          <div className="terminal-dock-bar">
-            <button
-              className="terminal-dock-toggle"
-              type="button"
-              onClick={() => setIsTerminalOpen((currentValue) => !currentValue)}
-              aria-expanded={isTerminalOpen}
-              aria-controls="explore-terminal-panel"
+          {isLensPopoverOpen ? (
+            <div
+              id="lens-mode-popover"
+              className="lens-popover"
+              ref={lensPopoverRef}
+              role="dialog"
+              aria-label="Mode selector"
             >
-              <span className="terminal-dock-icon" aria-hidden="true">
-                &gt;_
+              <div className="lens-popover-list" role="radiogroup" aria-label="Explore lens mode">
+                {LENS_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    className="lens-option"
+                    type="button"
+                    role="radio"
+                    aria-checked={option.value === exploreLensMode}
+                    onClick={() => handleExploreLensChange(option.value)}
+                  >
+                    <span className="lens-option-check" aria-hidden="true">
+                      {option.value === exploreLensMode ? '✓' : ''}
+                    </span>
+                    <span className="lens-option-copy">
+                      <span className="lens-option-label">{option.label}</span>
+                      <span className="lens-option-description">{option.description}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div id="explore-terminal-panel" className="terminal-dock-panel" hidden={!isTerminalOpen}>
+            <ExploreTerminal
+              isOpen={isTerminalOpen}
+              focusSignal={terminalFocusSignal}
+              prefersReducedMotion={prefersReducedMotion}
+            />
+          </div>
+
+          <div
+            className={`terminal-dock-bar ${
+              activeLensConfig.terminalProminent ? 'terminal-dock-bar--developer' : ''
+            }`}
+          >
+            <div className="terminal-dock-bar-left">
+              <button
+                className={`terminal-dock-toggle ${
+                  activeLensConfig.terminalProminent ? 'terminal-dock-toggle--prominent' : ''
+                }`}
+                type="button"
+                onClick={() => setIsTerminalOpen((currentValue) => !currentValue)}
+                aria-expanded={isTerminalOpen}
+                aria-controls="explore-terminal-panel"
+              >
+                <span className="terminal-dock-icon" aria-hidden="true">
+                  &gt;_
+                </span>
+                <span>{isTerminalOpen ? 'close terminal' : 'open terminal'}</span>
+              </button>
+            </div>
+
+            <div className="terminal-dock-meta">
+              <button
+                ref={lensToggleRef}
+                className="terminal-lens-trigger"
+                type="button"
+                aria-expanded={isLensPopoverOpen}
+                aria-controls="lens-mode-popover"
+                onClick={() => setIsLensPopoverOpen((currentValue) => !currentValue)}
+              >
+                <span>Mode: {LENS_LABELS[exploreLensMode]}</span>
+                <span aria-hidden="true">▾</span>
+              </button>
+              <span className="terminal-dock-shortcut">
+                {exploreLensMode === 'developer' ? 'cmd/ctrl + k' : 'cmd/ctrl + j'}
               </span>
-              <span>{isTerminalOpen ? 'close terminal' : 'open terminal'}</span>
-            </button>
-            <span className="terminal-dock-shortcut">cmd/ctrl + j</span>
+            </div>
           </div>
         </div>
       ) : null}
