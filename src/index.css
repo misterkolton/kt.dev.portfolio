@@ -44,8 +44,9 @@ a:hover {
   --date: #839ac0;
   --dock-bar: #0e8a97;
   --dock-text: #e9fbff;
-  --dock-pill-bg: rgb(4 50 58 / 26%);
+  --dock-pill-bg: rgb(4 50 58 / 24%);
   --dock-pill-border: rgb(233 251 255 / 30%);
+  position: relative;
   min-height: 100%;
   padding: clamp(0.85rem, 2.5vw, 1.6rem) clamp(0.75rem, 2.4vw, 1.7rem);
   background: var(--bg);
@@ -67,12 +68,12 @@ a:hover {
   --date: #5a7395;
   --dock-bar: #2f7f94;
   --dock-text: #eff9ff;
-  --dock-pill-bg: rgb(255 255 255 / 28%);
-  --dock-pill-border: rgb(239 249 255 / 60%);
+  --dock-pill-bg: rgb(255 255 255 / 30%);
+  --dock-pill-border: rgb(239 249 255 / 58%);
 }
 
 .app-shell.mode-explore {
-  padding-bottom: calc(2.9rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(2.95rem + env(safe-area-inset-bottom));
 }
 
 .app-shell.mode-explore .terminal-nav {
@@ -82,23 +83,64 @@ a:hover {
 .terminal-landing {
   width: min(100%, 920px);
   margin: 0 auto;
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 1.9rem;
 }
 
-.control-bar {
-  margin: 0 0 0.25rem 1.05rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem 1.1rem;
+.top-right-menu {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 30;
+}
+
+.top-right-menu-trigger {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--command);
+  font: inherit;
+  font-size: 1.06rem;
+  line-height: 1;
+  padding: 0.05rem 0.42rem 0.2rem;
+  cursor: pointer;
+}
+
+.top-right-menu-trigger:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.top-right-menu-popover {
+  position: absolute;
+  top: calc(100% + 0.34rem);
+  right: 0;
+  z-index: 25;
+  display: grid;
+  gap: 0.58rem;
+  min-width: 270px;
+  max-width: min(100vw - 2rem, 340px);
+  border: 1px solid var(--border);
+  background: rgb(9 14 23 / 98%);
+  padding: 0.56rem;
+}
+
+.app-shell.theme-light .top-right-menu-popover {
+  background: rgb(239 245 253 / 98%);
 }
 
 .toggle-group {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
+}
+
+.top-right-menu-popover .toggle-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.32rem;
 }
 
 .toggle-label {
@@ -155,12 +197,19 @@ a:hover {
 .section-block {
   display: flex;
   flex-direction: column;
-  gap: 0.68rem;
+  gap: 0.62rem;
   scroll-margin-top: 0.9rem;
 }
 
-.section-block > :not(.command-heading) {
+.section-body {
   margin-left: 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.62rem;
+}
+
+.section-body[hidden] {
+  display: none;
 }
 
 .command-heading {
@@ -171,6 +220,27 @@ a:hover {
   color: var(--command);
   font-size: 0.95rem;
   line-height: 1.25;
+}
+
+.command-heading-toggle {
+  width: fit-content;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+.command-heading-toggle:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.command-heading-caret {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1;
 }
 
 .prompt-marker {
@@ -346,13 +416,6 @@ a:hover {
   overflow-wrap: anywhere;
 }
 
-.confetti-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  pointer-events: none;
-}
-
 .terminal-dock {
   position: fixed;
   inset: auto 0 0;
@@ -448,109 +511,70 @@ a:hover {
   color: var(--muted);
 }
 
-.fre-tip,
-.modules-popover {
+.lens-popover {
   pointer-events: auto;
   position: absolute;
-  bottom: calc(env(safe-area-inset-bottom) + 2.4rem);
+  right: calc(env(safe-area-inset-right) + 0.95rem);
+  bottom: calc(env(safe-area-inset-bottom) + 2.38rem);
+  width: min(360px, calc(100vw - 2rem));
   border: 1px solid var(--border);
   background: rgb(9 14 23 / 98%);
   color: var(--text);
-  width: min(332px, calc(100vw - 2rem));
-  padding: 0.5rem 0.58rem;
-  font-size: 0.78rem;
-  line-height: 1.35;
+  padding: 0.32rem;
 }
 
-.app-shell.theme-light .fre-tip,
-.app-shell.theme-light .modules-popover {
+.app-shell.theme-light .lens-popover {
   background: rgb(239 245 253 / 98%);
 }
 
-.fre-tip {
-  left: calc(env(safe-area-inset-left) + 0.95rem);
+.lens-popover-list {
+  display: grid;
+  gap: 0.16rem;
 }
 
-.fre-tip-copy {
-  margin: 0;
-  color: var(--muted);
-}
-
-.fre-tip-copy code {
-  color: var(--text);
-}
-
-.fre-tip-actions {
-  margin-top: 0.38rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.38rem;
-}
-
-.fre-tip-button {
-  border: 1px solid var(--border);
+.lens-option {
+  border: 1px solid transparent;
   background: transparent;
-  color: var(--command);
+  color: inherit;
   font: inherit;
-  font-size: 0.75rem;
-  line-height: 1.2;
-  padding: 0.16rem 0.4rem;
+  text-align: left;
+  padding: 0.34rem 0.38rem;
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  gap: 0.42rem;
   cursor: pointer;
 }
 
-.fre-tip-button:focus-visible {
+.lens-option[aria-checked='true'] {
+  border-color: var(--border);
+  background: rgb(120 141 170 / 12%);
+}
+
+.lens-option:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: -1px;
 }
 
-.modules-popover {
-  right: calc(env(safe-area-inset-right) + 0.95rem);
-}
-
-.modules-popover-title,
-.modules-popover-progress,
-.modules-popover-footnote {
-  margin: 0;
-}
-
-.modules-popover-title {
-  color: var(--command);
-  text-transform: lowercase;
-}
-
-.modules-popover-progress {
-  margin-top: 0.16rem;
-  color: var(--text);
-}
-
-.modules-popover-list {
-  margin: 0.46rem 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 0.18rem;
-}
-
-.modules-popover-item {
-  display: flex;
-  align-items: baseline;
-  gap: 0.46rem;
-}
-
-.modules-popover-state {
-  color: var(--muted);
-}
-
-.modules-popover-state[data-active='true'] {
+.lens-option-check {
   color: var(--accent);
+  line-height: 1.35;
 }
 
-.modules-popover-label {
+.lens-option-copy {
+  display: grid;
+  gap: 0.08rem;
+}
+
+.lens-option-label {
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.32;
+}
+
+.lens-option-description {
   color: var(--muted);
-}
-
-.modules-popover-footnote {
-  color: var(--command);
+  font-size: 0.76rem;
+  line-height: 1.32;
 }
 
 .terminal-dock-bar {
@@ -566,6 +590,10 @@ a:hover {
   color: var(--dock-text);
   border-top: 1px solid rgb(0 0 0 / 22%);
   font-size: 0.82rem;
+}
+
+.terminal-dock-bar--developer {
+  border-top-color: rgb(57 233 163 / 55%);
 }
 
 .terminal-dock-bar-left,
@@ -588,12 +616,19 @@ a:hover {
   cursor: pointer;
 }
 
+.terminal-dock-toggle--prominent {
+  border: 1px solid var(--dock-pill-border);
+  background: var(--dock-pill-bg);
+  padding: 0.12rem 0.46rem;
+  border-radius: 999px;
+}
+
 .terminal-dock-toggle:hover {
   text-decoration: underline;
 }
 
 .terminal-dock-toggle:focus-visible,
-.terminal-modules-pill:focus-visible {
+.terminal-lens-trigger:focus-visible {
   outline: 1px solid currentColor;
   outline-offset: 2px;
 }
@@ -603,24 +638,20 @@ a:hover {
   letter-spacing: 0.02em;
 }
 
-.terminal-modules-pill {
+.terminal-lens-trigger {
   border: 1px solid var(--dock-pill-border);
   background: var(--dock-pill-bg);
   color: inherit;
   font: inherit;
   font-size: 0.74rem;
   line-height: 1.2;
-  padding: 0.12rem 0.48rem;
+  padding: 0.12rem 0.46rem;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.34rem;
   cursor: pointer;
   white-space: nowrap;
-}
-
-.terminal-modules-pill[data-unlocked='true'] {
-  background: rgb(47 171 133 / 24%);
 }
 
 .terminal-dock-shortcut {
@@ -641,9 +672,13 @@ a:hover {
     gap: 1.55rem;
   }
 
-  .control-bar {
-    margin-left: 0.82rem;
-    gap: 0.52rem 0.85rem;
+  .top-right-menu {
+    right: 0;
+  }
+
+  .top-right-menu-popover {
+    min-width: 0;
+    width: min(86vw, 310px);
   }
 
   .toggle-label,
@@ -661,11 +696,7 @@ a:hover {
     gap: 0.58rem;
   }
 
-  .section-block {
-    gap: 0.56rem;
-  }
-
-  .section-block > :not(.command-heading) {
+  .section-body {
     margin-left: 0.82rem;
   }
 
@@ -729,13 +760,11 @@ a:hover {
     padding: 0.38rem 0.62rem;
   }
 
-  .fre-tip,
-  .modules-popover {
-    left: 0.62rem;
+  .lens-popover {
     right: 0.62rem;
+    left: 0.62rem;
     width: auto;
-    bottom: calc(env(safe-area-inset-bottom) + 2.28rem);
-    font-size: 0.74rem;
+    bottom: calc(env(safe-area-inset-bottom) + 2.25rem);
   }
 
   .terminal-dock-bar {
@@ -744,9 +773,13 @@ a:hover {
     font-size: 0.76rem;
   }
 
-  .terminal-modules-pill {
+  .terminal-lens-trigger {
     font-size: 0.7rem;
-    padding: 0.1rem 0.42rem;
+    padding: 0.1rem 0.4rem;
+  }
+
+  .terminal-dock-toggle--prominent {
+    padding: 0.09rem 0.38rem;
   }
 
   .terminal-dock-shortcut {
