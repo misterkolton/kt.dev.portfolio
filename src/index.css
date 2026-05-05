@@ -143,7 +143,6 @@ a:hover {
   border-radius: 999px;
   background: var(--design-surface, transparent);
   color: var(--design-text, var(--command));
-  box-shadow: 0 12px 30px var(--design-panel-shadow, rgb(0 0 0 / 12%));
   backdrop-filter: blur(16px) saturate(170%);
   -webkit-backdrop-filter: blur(16px) saturate(170%);
 }
@@ -184,8 +183,7 @@ a:hover {
 
 .top-right-menu[data-design='true'] .toggle-label {
   color: var(--design-muted, var(--muted));
-  font-family:
-    'Google Sans', 'Google Sans Text', Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: Urbanist, Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 0.7rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -204,8 +202,7 @@ a:hover {
   flex: 1;
   border-radius: 999px;
   color: var(--design-muted, var(--command));
-  font-family:
-    'Google Sans', 'Google Sans Text', Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: Urbanist, Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 0.82rem;
   padding: 0.4rem 0.58rem;
 }
@@ -299,8 +296,17 @@ a:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.28rem;
   min-height: 2.55rem;
   min-width: min(100%, 16rem);
+  line-height: 1.2;
+  overflow: visible;
+}
+
+.design-hero-panel .design-system-link svg {
+  flex: 0 0 auto;
+  display: block;
+  overflow: visible;
 }
 
 .menu-action-pill {
@@ -320,8 +326,7 @@ a:hover {
   border-radius: 999px;
   background: var(--design-surface-soft, rgb(255 255 255 / 24%));
   color: var(--design-muted, var(--command));
-  font-family:
-    'Google Sans', 'Google Sans Text', Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: Urbanist, Inter, ui-sans-serif, system-ui, sans-serif;
   padding: 0.28rem 0.28rem 0.28rem 0.68rem;
 }
 
@@ -340,26 +345,40 @@ a:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.72rem;
+  gap: 0.38rem;
   font-size: 0.87rem;
   line-height: 1.3;
 }
 
 .terminal-nav-label {
+  margin-right: 0.18rem;
   color: var(--muted);
 }
 
-.terminal-nav a {
+.terminal-nav-label::before {
+  content: '$ ';
+  color: var(--accent);
+}
+
+.terminal-nav a,
+.terminal-nav .design-system-link {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: rgb(120 141 170 / 10%);
   color: var(--command);
+  padding: 0.16rem 0.48rem;
 }
 
 .terminal-nav .design-system-link {
-  border: 0;
-  background: transparent;
-  color: var(--command);
   font: inherit;
-  padding: 0;
   cursor: pointer;
+}
+
+.terminal-nav a:hover,
+.terminal-nav .design-system-link:hover {
+  border-color: var(--border);
+  background: rgb(120 141 170 / 16%);
+  text-decoration: none;
 }
 
 .project-links .design-system-link {
@@ -373,7 +392,6 @@ a:hover {
   cursor: pointer;
 }
 
-.terminal-nav .design-system-link:hover,
 .project-links .design-system-link:hover {
   text-decoration: underline;
 }
@@ -787,6 +805,7 @@ a:hover {
 
 .design-kicker {
   width: fit-content;
+  max-width: 100%;
   padding: 0.72rem 1.05rem;
   border: 1px solid rgb(255 255 255 / 58%);
   border-radius: 999px;
@@ -794,6 +813,7 @@ a:hover {
   box-shadow: 0 10px 24px rgb(68 79 99 / 8%);
   backdrop-filter: blur(18px) saturate(160%);
   -webkit-backdrop-filter: blur(18px) saturate(160%);
+  white-space: nowrap;
 }
 
 .design-hero h1 {
@@ -862,7 +882,8 @@ a:hover {
 
 .design-hero-panel a,
 .design-hero-panel .design-system-link,
-.design-card-links a {
+.design-card-links a,
+.design-card-links .design-system-link {
   width: fit-content;
   border-radius: 999px;
   color: #5168d9;
@@ -982,7 +1003,7 @@ a:hover {
 
 .design-featured-main {
   flex: 1;
-  padding: clamp(1rem, 3vw, 2.2rem);
+  padding: clamp(0.8rem, 2vw, 1.4rem);
 }
 
 .design-featured-main p {
@@ -1190,7 +1211,7 @@ a:hover {
   --link: #0f6f79;
   --design-radius-page: 40px;
   --design-radius-panel: 32px;
-  --design-radius-card: 24px;
+  --design-radius-card: 12px;
   --design-radius-pill: 999px;
   background:
     radial-gradient(circle at 78% 8%, rgb(72 201 188 / 18%), transparent 31rem),
@@ -1281,6 +1302,7 @@ a:hover {
 .design-hero-links a,
 .design-stack-pills span,
 .design-card-links a,
+.design-card-links .design-system-link,
 .design-featured-side span,
 .design-tag-row span {
   width: fit-content;
@@ -1402,9 +1424,8 @@ a:hover {
 .design-portfolio {
   width: min(100%, 1120px);
   gap: clamp(1.25rem, 2.7vw, 2.2rem);
-  font-family:
-    'Google Sans', 'Google Sans Text', Inter, ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: Urbanist, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
   font-optical-sizing: auto;
   font-weight: 400;
 }
@@ -1879,8 +1900,12 @@ a:hover {
 
 .app-shell.mode-design.theme-light {
   --design-page-bg: linear-gradient(180deg, #f9fbfc 0%, #eef3f5 54%, #e9eef1 100%);
-  --design-ambient-a: rgb(0 144 154 / 16%);
-  --design-ambient-b: rgb(88 106 255 / 10%);
+  --design-ambient-a-strong: rgb(0 144 154 / 10%);
+  --design-ambient-a-mid: rgb(0 144 154 / 5%);
+  --design-ambient-a-soft: rgb(0 144 154 / 1.8%);
+  --design-ambient-b-strong: rgb(88 106 255 / 7%);
+  --design-ambient-b-mid: rgb(88 106 255 / 3.5%);
+  --design-ambient-b-soft: rgb(88 106 255 / 1.4%);
   --design-surface: rgb(255 255 255 / 54%);
   --design-surface-soft: rgb(255 255 255 / 34%);
   --design-surface-strong: rgb(255 255 255 / 72%);
@@ -1898,8 +1923,12 @@ a:hover {
 
 .app-shell.mode-design.theme-dark {
   --design-page-bg: linear-gradient(180deg, #071018 0%, #0c1721 52%, #101b24 100%);
-  --design-ambient-a: rgb(35 222 207 / 12%);
-  --design-ambient-b: rgb(119 145 255 / 12%);
+  --design-ambient-a-strong: rgb(35 222 207 / 8%);
+  --design-ambient-a-mid: rgb(35 222 207 / 4%);
+  --design-ambient-a-soft: rgb(35 222 207 / 1.6%);
+  --design-ambient-b-strong: rgb(119 145 255 / 8%);
+  --design-ambient-b-mid: rgb(119 145 255 / 4%);
+  --design-ambient-b-soft: rgb(119 145 255 / 1.6%);
   --design-surface: rgb(255 255 255 / 8%);
   --design-surface-soft: rgb(255 255 255 / 7%);
   --design-surface-strong: rgb(255 255 255 / 11%);
@@ -1930,8 +1959,20 @@ a:hover {
   --command: var(--design-muted);
   --link: var(--design-accent);
   background:
-    radial-gradient(circle at 78% 10%, var(--design-ambient-a), transparent 29rem),
-    radial-gradient(circle at 14% 0%, var(--design-ambient-b), transparent 25rem),
+    radial-gradient(
+      circle at 78% 10%,
+      var(--design-ambient-a-strong) 0%,
+      var(--design-ambient-a-mid) 32%,
+      var(--design-ambient-a-soft) 58%,
+      transparent 78%
+    ),
+    radial-gradient(
+      circle at 14% 0%,
+      var(--design-ambient-b-strong) 0%,
+      var(--design-ambient-b-mid) 34%,
+      var(--design-ambient-b-soft) 60%,
+      transparent 80%
+    ),
     var(--design-page-bg);
 }
 
@@ -1939,9 +1980,8 @@ a:hover {
   width: min(100%, 1160px);
   gap: clamp(2rem, 3.6vw, 3.4rem);
   color: var(--design-text);
-  font-family:
-    'Google Sans', 'Google Sans Text', Inter, ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: Urbanist, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
   font-optical-sizing: auto;
   font-weight: 400;
 }
@@ -1954,34 +1994,43 @@ a:hover {
   min-height: auto;
   overflow: visible;
   padding: clamp(1.2rem, 4vw, 48px);
-  border-color: var(--design-border);
+  border: 0;
   border-radius: var(--design-radius-page);
   background:
-    radial-gradient(circle at 80% 65%, var(--design-ambient-a), transparent 26rem),
+    radial-gradient(
+      circle at 80% 65%,
+      var(--design-ambient-a-strong) 0%,
+      var(--design-ambient-a-mid) 32%,
+      var(--design-ambient-a-soft) 58%,
+      transparent 78%
+    ),
     linear-gradient(135deg, var(--design-surface-strong), var(--design-surface-soft));
-  box-shadow:
-    0 28px 80px var(--design-panel-shadow),
-    inset 0 1px 0 rgb(255 255 255 / 42%);
+  box-shadow: none;
 }
 
 .design-hero h1,
 .design-hero-title,
 .design-section-heading h2 {
   color: var(--design-text) !important;
-  font-weight: 400 !important;
   letter-spacing: 0 !important;
 }
 
 .design-hero h1 {
   max-width: none;
   font-size: clamp(3.4rem, 7vw, 6.4rem);
+  font-weight: 600 !important;
   line-height: 1;
 }
 
 .design-hero-title {
   max-width: 20ch !important;
   font-size: clamp(1.55rem, 3vw, 3rem) !important;
+  font-weight: 500 !important;
   line-height: 1.1 !important;
+}
+
+.design-section-heading h2 {
+  font-weight: 500 !important;
 }
 
 .design-hero-copy > p:not(.design-kicker):not(.design-hero-title),
@@ -1989,6 +2038,10 @@ a:hover {
 .design-capability-list p,
 .design-writing-panel p {
   color: var(--design-muted);
+}
+
+.design-hero-copy > p:not(.design-kicker):not(.design-hero-title) {
+  font-weight: 430;
 }
 
 .design-kicker,
@@ -2019,12 +2072,14 @@ a:hover {
   flex-basis: auto;
   background: var(--design-panel);
   border-radius: var(--design-radius-panel);
+  border-color: transparent;
 }
 
 .design-code-card {
   background: var(--design-code-bg);
   color: var(--design-code-text);
   border-radius: var(--design-radius-card);
+  font-weight: 520;
 }
 
 .design-code-card span {
@@ -2036,6 +2091,7 @@ a:hover {
 .design-hero-links a,
 .design-stack-pills span,
 .design-card-links a,
+.design-card-links .design-system-link,
 .design-project-card h3,
 .design-capability-list h3,
 .design-writing-panel h3 {
@@ -2044,12 +2100,73 @@ a:hover {
 
 .design-hero-panel a,
 .design-hero-panel .design-system-link {
-  background: var(--design-surface-strong);
+  background: var(--design-text);
   border-radius: var(--design-radius-pill);
+  border-color: transparent;
+  color: var(--bg);
+  box-shadow: 0 18px 38px color-mix(in srgb, var(--design-text) 18%, transparent);
+  min-width: min(100%, 18rem);
 }
 
 .design-stack-pills span {
   border-radius: var(--design-radius-pill);
+  border-color: transparent;
+}
+
+.app-shell.mode-design .design-kicker,
+.app-shell.mode-design .design-hero,
+.app-shell.mode-design .design-hero-panel,
+.app-shell.mode-design .design-hero-panel a,
+.app-shell.mode-design .design-hero-panel .design-system-link,
+.app-shell.mode-design .design-hero-links a,
+.app-shell.mode-design .design-stack-pills span,
+.app-shell.mode-design .design-metrics div,
+.app-shell.mode-design .design-featured-card,
+.app-shell.mode-design .design-featured-side,
+.app-shell.mode-design .design-featured-side span,
+.app-shell.mode-design .design-tag-row span,
+.app-shell.mode-design .design-status,
+.app-shell.mode-design .design-project-card,
+.app-shell.mode-design .design-card-links a,
+.app-shell.mode-design .design-card-links .design-system-link,
+.app-shell.mode-design .design-capability-list article,
+.app-shell.mode-design .design-writing-panel,
+.app-shell.mode-design .design-writing-panel article,
+.app-shell.mode-design .top-right-menu-trigger,
+.app-shell.mode-design .top-right-menu-popover,
+.app-shell.mode-design .menu-action-button,
+.app-shell.mode-design .menu-action-pill,
+.app-shell.mode-design .toggle-options,
+.app-shell.mode-design .toggle-button {
+  border-color: transparent;
+}
+
+.app-shell.mode-design .design-kicker,
+.app-shell.mode-design .design-hero,
+.app-shell.mode-design .design-hero-panel,
+.app-shell.mode-design .design-hero-panel a,
+.app-shell.mode-design .design-hero-panel .design-system-link,
+.app-shell.mode-design .design-hero-links a,
+.app-shell.mode-design .design-stack-pills span,
+.app-shell.mode-design .design-metrics div,
+.app-shell.mode-design .design-featured-card,
+.app-shell.mode-design .design-featured-side,
+.app-shell.mode-design .design-featured-side span,
+.app-shell.mode-design .design-tag-row span,
+.app-shell.mode-design .design-project-card,
+.app-shell.mode-design .design-card-links a,
+.app-shell.mode-design .design-card-links .design-system-link,
+.app-shell.mode-design .design-capability-list article,
+.app-shell.mode-design .design-writing-panel,
+.app-shell.mode-design .design-writing-panel article,
+.app-shell.mode-design .top-right-menu-trigger,
+.app-shell.mode-design .top-right-menu-popover,
+.app-shell.mode-design .menu-action-button,
+.app-shell.mode-design .menu-action-pill,
+.app-shell.mode-design .toggle-options,
+.app-shell.mode-design .toggle-button {
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
 }
 
 .design-metrics {
@@ -2104,6 +2221,12 @@ a:hover {
 .top-right-menu[data-design='true'] .top-right-menu-trigger {
   width: 2.15rem;
   height: 2.15rem;
+}
+
+.app-shell:not(.mode-design) .top-right-menu-trigger {
+  width: 2.05rem;
+  height: 1.55rem;
+  padding: 0 0.34rem;
 }
 
 .top-right-menu[data-design='true'] .top-right-menu-trigger {
@@ -2188,8 +2311,8 @@ a:hover {
   }
 
   .global-top-controls {
-    top: 1.45rem;
-    right: 1.45rem;
+    top: 1rem;
+    right: 1rem;
     width: auto;
   }
 
@@ -2256,7 +2379,13 @@ a:hover {
     display: flex;
     border-radius: 24px;
     min-height: auto;
-    padding: 5rem 1.2rem 1.45rem;
+    padding: 3rem 1.2rem 1.45rem;
+  }
+
+  .design-kicker {
+    font-size: clamp(0.58rem, 2.6vw, 0.72rem);
+    letter-spacing: 0.12em;
+    padding: 0.62rem 0.82rem;
   }
 
   .design-hero h1 {

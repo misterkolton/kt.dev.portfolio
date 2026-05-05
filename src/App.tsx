@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { CircleEllipsis } from 'lucide-react'
+import { CircleEllipsis, Ellipsis, ExternalLink } from 'lucide-react'
 import { AnimatedCheckmark } from '@/components/ui/animated-checkmark'
 
 type QuickLink = {
@@ -730,6 +730,21 @@ function TopRightMenu({
   const { mode, setMode } = usePortfolioMode()
 
   useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'm') {
+        event.preventDefault()
+        setIsOpen((currentValue) => !currentValue)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!isOpen) {
       return
     }
@@ -776,12 +791,17 @@ function TopRightMenu({
         ref={triggerRef}
         className="top-right-menu-trigger"
         type="button"
-        aria-label="Open appearance and shell settings"
+        aria-label="Open appearance and shell settings, Command or Control M"
         aria-expanded={isOpen}
         aria-controls="top-right-menu-popover"
+        title="Open menu (Cmd/Ctrl + M)"
         onClick={() => setIsOpen((currentValue) => !currentValue)}
       >
-        {isDesignMode ? <CircleEllipsis size={22} strokeWidth={1.8} aria-hidden="true" /> : '⋯'}
+        {isDesignMode ? (
+          <CircleEllipsis size={22} strokeWidth={1.8} aria-hidden="true" />
+        ) : (
+          <Ellipsis size={18} strokeWidth={2} aria-hidden="true" />
+        )}
       </button>
 
       {isOpen ? (
@@ -845,11 +865,10 @@ function GlobalTopControls({
 function TerminalNav({ inline }: { inline?: boolean }) {
   return (
     <nav className={`terminal-nav${inline ? ' terminal-nav--inline' : ''}`} aria-label="Section navigation">
-      <span className="terminal-nav-label">jump:</span>
+      <span className="terminal-nav-label">nav</span>
       <a href="#about">about</a>
-      <a href="#projects">projects</a>
-      <a href="#portfolio-project">portfolio</a>
-      <DesignSystemLink>token</DesignSystemLink>
+      <a href="#projects">work</a>
+      <DesignSystemLink>system</DesignSystemLink>
       <a href="#contact">contact</a>
     </nav>
   )
@@ -1498,7 +1517,10 @@ function DesignPortfolioShell() {
               <span key={item}>{item}</span>
             ))}
           </div>
-          <DesignSystemLink>Open Token Design System</DesignSystemLink>
+          <DesignSystemLink>
+            Token Design System
+            <ExternalLink size={18} strokeWidth={2.2} aria-hidden="true" />
+          </DesignSystemLink>
         </div>
       </header>
 

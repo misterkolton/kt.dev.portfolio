@@ -543,7 +543,7 @@ export default function App() {
                   />
                 </div>
               )}
-              code={`import { ArticleCard } from "@/components/article-card/ArticleCard"\n\n<ArticleCard\n  href="/blog/introducing-token"\n  kicker="Design System"\n  title="Introducing Token"\n  meta="By Ada · 5 min read"\n  excerpt="A quick overview of how tokens, components, and docs work together."\n  imageSrc="/images/anime-chick.png"\n  imageAlt="Token hero"\n/>`}
+              code={`import { ArticleCard } from "@/components/article-card/ArticleCard"\n\n<ArticleCard\n  href="/blog/introducing-token"\n  kicker="Design System"\n  title="Introducing Token"\n  meta="By Ada · 5 min read"\n  excerpt="A quick overview of how tokens, components, and docs work together."\n  imageSrc="/images/blue-wave-hero.png"\n  imageAlt="Token hero"\n/>`}
             />
 
             <ComponentExample
@@ -996,24 +996,24 @@ export default function App() {
                   {/* Row 2: image avatars (rounded + circular) */}
                   <div className="flex flex-wrap items-center gap-6">
                     {/* Rounded */}
-                    <Avatar size="xLarge" src="/images/spiderman.png" alt="Example" />
+                    <Avatar size="xLarge" src="/images/abstact-pattern-2.jpeg" alt="Example" />
                     <Avatar size="xLarge" src="/images/kt-avatar.png" alt="Example" />
-                    <Avatar size="xLarge" src="/images/anime-chick.png" alt="Example" />
+                    <Avatar size="xLarge" src="/images/blue-wave-hero.png" alt="Example" />
                     {/* Circular */}
-                    <Avatar size="xLarge" shape="circle" src="/images/spiderman.png" alt="Example" />
+                    <Avatar size="xLarge" shape="circle" src="/images/abstact-pattern-2.jpeg" alt="Example" />
                     <Avatar size="xLarge" shape="circle" src="/images/kt-avatar.png" alt="Example" />
-                    <Avatar size="xLarge" shape="circle" src="/images/anime-chick.png" alt="Example" />
+                    <Avatar size="xLarge" shape="circle" src="/images/blue-wave-hero.png" alt="Example" />
                   </div>
 
                   {/* Row 3: ring-style active status on images */}
                   <div className="flex flex-wrap items-center gap-6">
-                    <Avatar size="xLarge" src="/images/spiderman.png" alt="Example" isActive activeAppearance="ring" />
+                    <Avatar size="xLarge" src="/images/abstact-pattern-2.jpeg" alt="Example" isActive activeAppearance="ring" />
                     <Avatar size="xLarge" src="/images/kt-avatar.png" alt="Example" isActive activeAppearance="ring" />
-                    <Avatar size="xLarge" src="/images/anime-chick.png" alt="Example" isActive activeAppearance="ring" />
+                    <Avatar size="xLarge" src="/images/blue-wave-hero.png" alt="Example" isActive activeAppearance="ring" />
                   </div>
                 </div>
               )}
-              code={`import { Avatar } from "@/components/ui/avatar"\n\nexport function AvatarExamples() {\n  return (\n    <div className=\"flex flex-wrap items-center gap-6\">\n      <Avatar size=\"xSmall\" initials=\"NW\" />\n      <Avatar size=\"small\" initials=\"NW\" isActive />\n      <Avatar size=\"medium\" initials=\"NW\" />\n      <Avatar size=\"large\" initials=\"NW\" isSelected />\n      <Avatar size=\"xLarge\" src=\"/images/spiderman.png\" alt=\"Example\" />\n    </div>\n  )\n}`}
+              code={`import { Avatar } from "@/components/ui/avatar"\n\nexport function AvatarExamples() {\n  return (\n    <div className=\"flex flex-wrap items-center gap-6\">\n      <Avatar size=\"xSmall\" initials=\"NW\" />\n      <Avatar size=\"small\" initials=\"NW\" isActive />\n      <Avatar size=\"medium\" initials=\"NW\" />\n      <Avatar size=\"large\" initials=\"NW\" isSelected />\n      <Avatar size=\"xLarge\" src=\"/images/abstact-pattern-2.jpeg\" alt=\"Example\" />\n    </div>\n  )\n}`}
             />
           </section>
 
