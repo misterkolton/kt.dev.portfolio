@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+
+    /* Typography tokens */
+    --font-sans: Geist, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --font-display: var(--font-sans);
+
+    /* Font sizes */
+    --size-xs: 0.75rem; /* 12px */
+    --size-sm: 0.875rem; /* 14px */
+    --size-md: 1rem; /* 16px */
+    --size-lg: 1.125rem; /* 18px */
+    --size-xl: 1.25rem; /* 20px */
+    --size-2xl: 1.5rem; /* 24px */
+    --size-3xl: 1.875rem; /* 30px */
+    --size-4xl: 2.25rem; /* 36px */
+    --size-5xl: clamp(2rem, 1.2vw + 1.6rem, 2.5rem); /* h1 */
+    --size-6xl: clamp(2.75rem, 2vw + 2rem, 3.5rem); /* display */
+
+    /* Heading levels */
+    --heading-1: var(--size-5xl);
+    --heading-2: clamp(1.5rem, 1vw + 1.2rem, 2rem);
+    --heading-3: 1.25rem;
+    --heading-4: 1.125rem;
+
+    /* Leading */
+    --leading-tight: 1.1;
+    --leading-normal: 1.5;
+    --leading-loose: 1.65;
+
+    /* Tracking */
+    --tracking-tight: -0.01em;
+    --tracking-normal: 0em;
+    --tracking-wide: 0.02em;
+
+    /* Weights + adjustments */
+    --heading-weight: 600;
+    --body-tracking: 0em;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply m-0 min-h-screen bg-slate-50 font-sans text-slate-900 antialiased;
+    font-optical-sizing: auto;
+  }
+
+  a {
+    @apply text-inherit no-underline;
+  }
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+
+    /* Dark-mode typography adjustments */
+    --heading-weight: 500;
+    --body-tracking: 0.005em;
+  }
+}
+
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  /* Balanced headings support */
+  .text-balance { }
+  @supports (text-wrap: balance) {
+    .text-balance { text-wrap: balance; }
+    .no-balance { text-wrap: auto; }
+  }
+  /* Prose styles (lightweight subset) */
+  .prose { color: hsl(var(--foreground)); max-width: 70ch; }
+  .prose :where(h1){ font-size: var(--heading-1); line-height: var(--leading-tight); font-weight: var(--heading-weight); margin: 1.2em 0 0.5em; }
+  .prose :where(h2){ font-size: var(--heading-2); line-height: 1.2; font-weight: var(--heading-weight); margin: 1.2em 0 0.5em; }
+  .prose :where(h3){ font-size: var(--heading-3); line-height: 1.3; font-weight: 600; margin: 1em 0 0.5em; }
+  .prose :where(p){ font-size: var(--size-md); line-height: var(--leading-loose); letter-spacing: var(--body-tracking); margin: 0.75em 0; }
+  .prose :where(ul,ol){ padding-left: 1.25em; margin: 0.75em 0; }
+  .prose :where(li){ margin: 0.25em 0; }
+  .prose :where(a){ color: hsl(var(--primary)); text-decoration: underline; }
+  .prose :where(code){ font-family: var(--font-mono); font-size: 0.9em; }
+  .prose-sm :where(p){ font-size: var(--size-sm); }
+  .prose-lg :where(p){ font-size: var(--size-lg); }
+  .prose-invert { color: hsl(var(--muted-foreground)); }
+
+  /* Locale tuning */
+  :lang(ja), :lang(ko), :lang(zh) { letter-spacing: 0; }
+}

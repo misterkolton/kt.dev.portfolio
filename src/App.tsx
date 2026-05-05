@@ -1,12 +1,17 @@
 import {
+  createContext,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
+  useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react'
+import { CircleEllipsis, Ellipsis, ExternalLink } from 'lucide-react'
+import { AnimatedCheckmark } from '@/components/ui/animated-checkmark'
 
 type QuickLink = {
   label: string
@@ -27,6 +32,16 @@ type ProjectItem = {
   summary: string
   tags: string[]
   links: QuickLink[]
+  featured?: boolean
+  date?: string
+  problem?: string
+  results?: string[]
+  role?: string
+  duration?: string
+  platform?: string
+  timeline?: string
+  systemNotes?: string
+  patterns?: string[]
 }
 
 type PostItem = {
@@ -36,11 +51,13 @@ type PostItem = {
 }
 
 type ThemeMode = 'dark' | 'light'
-type ProfileMode = 'professional' | 'explore'
-type ExploreLensMode = 'standard' | 'developer' | 'client' | 'design'
+type PortfolioMode = 'standard' | 'developer' | 'design'
+type PortfolioView = Exclude<PortfolioMode, 'developer'>
+type CardVariant = 'standard' | 'design'
 type ExploreSectionId = 'about' | 'experience' | 'projects' | 'posts'
 type TerminalSectionId = 'about' | 'projects' | 'contact'
 type TerminalCommand = 'help' | 'about' | 'projects' | 'contact' | 'open' | 'clear'
+type ProjectOrderingStrategy = 'none' | 'design-focus' | 'developer-tech'
 
 type TerminalHistoryItem =
   | { id: number; kind: 'command'; command: string }
@@ -53,8 +70,14 @@ type ToggleGroupProps<T extends string> = {
   onChange: (value: T) => void
 }
 
-type LensOption = {
-  value: ExploreLensMode
+type DesignSystemLinkProps = {
+  children: ReactNode
+  className?: string
+  variant?: 'inline' | 'menu'
+}
+
+type ModeOption = {
+  value: PortfolioMode
   label: string
   description: string
 }
@@ -62,16 +85,21 @@ type LensOption = {
 type ExploreSectionOpenState = Record<ExploreSectionId, boolean>
 
 type LensConfig = {
+  view: PortfolioView
+  cardVariant: CardVariant
+  defaultExpandedSections: ExploreSectionOpenState
   sectionOrder: ExploreSectionId[]
-  sectionDefaults: ExploreSectionOpenState
-  terminalDefaultOpen: boolean
-  terminalProminent: boolean
-  showProjectTags: boolean
+  orderingStrategy: ProjectOrderingStrategy
+}
+
+type PortfolioModeContextValue = {
+  mode: PortfolioMode
+  setMode: (mode: PortfolioMode) => void
+  switchToPortfolio: () => void
 }
 
 const THEME_STORAGE_KEY = 'kt-theme'
-const PROFILE_STORAGE_KEY = 'kt-profile-mode'
-const EXPLORE_LENS_STORAGE_KEY = 'exploreModeLens'
+const PORTFOLIO_MODE_STORAGE_KEY = 'portfolioMode'
 
 const ABOUT_LEAD =
   'Software engineer building direct-user products with ownership that starts in discovery and continues through production.'
@@ -119,11 +147,16 @@ const EXPERIENCE: ExperienceItem[] = [
 
 const PROJECTS: ProjectItem[] = [
   {
-    name: 'terminal-portfolio',
+    name: 'portfolio',
     status: 'live',
     summary:
-      'The previous terminal command interface for this site, kept as a working project and reference implementation.',
+      'The live portfolio site, with viewing modes for technical, standard, and design-focused presentation.',
     tags: ['react', 'typescript', 'vite', 'vercel'],
+    featured: true,
+    date: '2026-05-04',
+    systemNotes:
+      'Mode-specific composition keeps the portfolio adaptable without splitting content across multiple pages.',
+    patterns: ['global mode dock', 'route-level design system', 'responsive portfolio skins'],
     links: [
       { label: 'live', href: 'https://kolton.dev' },
       {
@@ -133,11 +166,27 @@ const PROJECTS: ProjectItem[] = [
     ],
   },
   {
+    name: 'token-design-system',
+    status: 'live',
+    summary:
+      'A component and documentation system for reusable UI patterns, interaction states, and portfolio-grade interface polish.',
+    tags: ['design', 'system', 'components', 'accessibility'],
+    date: '2026-05-03',
+    systemNotes:
+      'Documents shared primitives and composed examples so product surfaces can stay consistent while still feeling crafted.',
+    patterns: ['component documentation', 'glass menu controls', 'responsive examples'],
+    links: [{ label: 'live', href: '/design-system' }],
+  },
+  {
     name: 'incident-playbook-kit',
-    status: 'active',
+    status: 'planned',
     summary:
       'Practical templates and runbook patterns for triage, communication, and post-incident system hardening.',
     tags: ['ops', 'reliability', 'playbooks'],
+    date: '2026-02-12',
+    systemNotes:
+      'Structured around fast scanning, repeatable incident roles, and decision logs that survive the incident.',
+    patterns: ['checklist flow', 'status taxonomy', 'post-incident review'],
     links: [{ label: 'github', href: 'https://github.com/misterkolton' }],
   },
   {
@@ -146,6 +195,10 @@ const PROJECTS: ProjectItem[] = [
     summary:
       'A sandbox for testing versioned API contracts and backward-compatibility checks before release windows.',
     tags: ['api', 'contracts', 'testing'],
+    date: '2026-01-21',
+    systemNotes:
+      'The surface is planned around comparing versions, highlighting risk, and keeping release decisions explicit.',
+    patterns: ['comparison cards', 'compatibility matrix', 'release gate'],
     links: [{ label: 'github', href: 'https://github.com/misterkolton' }],
   },
 ]
@@ -165,14 +218,7 @@ const POSTS: PostItem[] = [
   },
 ]
 
-const EXPLORE_SECTION_IDS: ExploreSectionId[] = [
-  'about',
-  'experience',
-  'projects',
-  'posts',
-]
-
-const LENS_OPTIONS: LensOption[] = [
+const MODE_OPTIONS: ModeOption[] = [
   {
     value: 'standard',
     label: 'Standard',
@@ -184,72 +230,42 @@ const LENS_OPTIONS: LensOption[] = [
     description: 'Technical lens + command access.',
   },
   {
-    value: 'client',
-    label: 'Client',
-    description: 'Outcomes and narrative first.',
-  },
-  {
     value: 'design',
     label: 'Design',
     description: 'UI decisions and system focus.',
   },
 ]
 
-const LENS_LABELS: Record<ExploreLensMode, string> = {
+const MODE_LABELS: Record<PortfolioMode, string> = {
   standard: 'Standard',
   developer: 'Developer',
-  client: 'Client',
   design: 'Design',
 }
 
-const LENS_CONFIG: Record<ExploreLensMode, LensConfig> = {
+const PORTFOLIO_LENS_CONFIG: Record<PortfolioView, LensConfig> = {
   standard: {
-    sectionOrder: ['about', 'experience', 'projects', 'posts'],
-    sectionDefaults: {
+    view: 'standard',
+    cardVariant: 'standard',
+    defaultExpandedSections: {
       about: true,
       experience: true,
       projects: true,
       posts: true,
     },
-    terminalDefaultOpen: false,
-    terminalProminent: false,
-    showProjectTags: false,
-  },
-  developer: {
-    sectionOrder: ['projects', 'experience', 'posts', 'about'],
-    sectionDefaults: {
-      about: false,
-      experience: false,
-      projects: true,
-      posts: true,
-    },
-    terminalDefaultOpen: true,
-    terminalProminent: true,
-    showProjectTags: true,
-  },
-  client: {
     sectionOrder: ['about', 'experience', 'projects', 'posts'],
-    sectionDefaults: {
-      about: true,
-      experience: true,
-      projects: true,
-      posts: false,
-    },
-    terminalDefaultOpen: false,
-    terminalProminent: false,
-    showProjectTags: false,
+    orderingStrategy: 'none',
   },
   design: {
-    sectionOrder: ['projects', 'about', 'experience', 'posts'],
-    sectionDefaults: {
+    view: 'design',
+    cardVariant: 'design',
+    defaultExpandedSections: {
       about: true,
       experience: false,
       projects: true,
       posts: true,
     },
-    terminalDefaultOpen: false,
-    terminalProminent: false,
-    showProjectTags: true,
+    sectionOrder: ['projects', 'about', 'experience', 'posts'],
+    orderingStrategy: 'design-focus',
   },
 }
 
@@ -270,7 +286,7 @@ const TERMINAL_ALIASES: Record<string, TerminalCommand> = {
 }
 
 const TERMINAL_INTRO_LINES = [
-  'terminal ready (explore mode)',
+  'terminal ready (developer mode)',
   "type 'help' to list commands",
 ]
 
@@ -287,8 +303,6 @@ const TERMINAL_ENGINEERING_TAGS = new Set([
   'vercel',
 ])
 
-const TERMINAL_IMPACT_TAGS = new Set(['reliability', 'ops', 'playbooks'])
-
 const TERMINAL_DESIGN_TAGS = new Set([
   'design',
   'system',
@@ -300,13 +314,27 @@ const TERMINAL_DESIGN_TAGS = new Set([
   'accessibility',
 ])
 
+const OPEN_USAGE_LINES = ['Usage: open <about|projects|contact>']
+
+const DESIGN_SYSTEM_OPEN_DELAY = 1100
+
 const STATUS_PRIORITY: Record<ProjectStatus, number> = {
   live: 3,
   active: 2,
   planned: 1,
 }
 
-const OPEN_USAGE_LINES = ['Usage: open <about|projects|contact>']
+const PortfolioModeContext = createContext<PortfolioModeContextValue | null>(null)
+
+const usePortfolioMode = (): PortfolioModeContextValue => {
+  const contextValue = useContext(PortfolioModeContext)
+
+  if (!contextValue) {
+    throw new Error('usePortfolioMode must be used within PortfolioModeContext')
+  }
+
+  return contextValue
+}
 
 const hasWindow = (): boolean => typeof window !== 'undefined'
 
@@ -330,26 +358,26 @@ const safeLocalStorageSet = (key: string, value: string): void => {
   try {
     window.localStorage.setItem(key, value)
   } catch {
-    // ignored intentionally
+    // Intentionally ignored.
   }
 }
-
-const isExploreLensMode = (value: string | null): value is ExploreLensMode =>
-  value === 'standard' ||
-  value === 'developer' ||
-  value === 'client' ||
-  value === 'design'
 
 const readStoredTheme = (): ThemeMode =>
   safeLocalStorageGet(THEME_STORAGE_KEY) === 'light' ? 'light' : 'dark'
 
-const readStoredProfileMode = (): ProfileMode =>
-  safeLocalStorageGet(PROFILE_STORAGE_KEY) === 'explore' ? 'explore' : 'professional'
+const isPortfolioMode = (value: string | null): value is PortfolioMode =>
+  value === 'standard' ||
+  value === 'developer' ||
+  value === 'design'
 
-const readStoredExploreLens = (): ExploreLensMode => {
-  const storedValue = safeLocalStorageGet(EXPLORE_LENS_STORAGE_KEY)
-  return isExploreLensMode(storedValue) ? storedValue : 'standard'
+const readStoredMode = (): PortfolioMode => {
+  const storedValue = safeLocalStorageGet(PORTFOLIO_MODE_STORAGE_KEY)
+  return isPortfolioMode(storedValue) ? storedValue : 'standard'
 }
+
+const cloneSectionState = (
+  state: ExploreSectionOpenState,
+): ExploreSectionOpenState => ({ ...state })
 
 const countMatchingTags = (tags: string[], matcher: Set<string>): number =>
   tags.reduce(
@@ -357,58 +385,101 @@ const countMatchingTags = (tags: string[], matcher: Set<string>): number =>
     0,
   )
 
-const hasLensSignal = (projects: ProjectItem[], matcher: Set<string>): boolean =>
-  projects.some((project) => countMatchingTags(project.tags, matcher) > 0)
-
-const scoreProjectForLens = (project: ProjectItem, lensMode: ExploreLensMode): number => {
-  const statusScore = STATUS_PRIORITY[project.status]
-
-  if (lensMode === 'developer') {
-    return countMatchingTags(project.tags, TERMINAL_ENGINEERING_TAGS) * 10 + statusScore
+const parseProjectDate = (value?: string): number => {
+  if (!value) {
+    return Number.NEGATIVE_INFINITY
   }
 
-  if (lensMode === 'client') {
-    return countMatchingTags(project.tags, TERMINAL_IMPACT_TAGS) * 10 + statusScore
-  }
-
-  if (lensMode === 'design') {
-    return countMatchingTags(project.tags, TERMINAL_DESIGN_TAGS) * 10 + statusScore
-  }
-
-  return statusScore
+  const timestamp = Date.parse(value)
+  return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp
 }
 
-const getOrderedProjects = (
+const sortByExistingOrder = (
   projects: ProjectItem[],
-  lensMode: ExploreLensMode,
+  compare: (
+    projectA: ProjectItem,
+    projectB: ProjectItem,
+    indexA: number,
+    indexB: number,
+  ) => number,
 ): ProjectItem[] => {
-  if (lensMode === 'standard') {
-    return projects
-  }
+  const rankedProjects = projects.map((project, index) => ({ project, index }))
 
-  if (lensMode === 'client' && !hasLensSignal(projects, TERMINAL_IMPACT_TAGS)) {
-    return projects
-  }
-
-  if (lensMode === 'design' && !hasLensSignal(projects, TERMINAL_DESIGN_TAGS)) {
-    return projects
-  }
-
-  const rankedProjects = projects.map((project, index) => ({
-    index,
-    project,
-    score: scoreProjectForLens(project, lensMode),
-  }))
-
-  rankedProjects.sort((projectA, projectB) => {
-    if (projectB.score !== projectA.score) {
-      return projectB.score - projectA.score
-    }
-
-    return projectA.index - projectB.index
-  })
+  rankedProjects.sort((entryA, entryB) =>
+    compare(entryA.project, entryB.project, entryA.index, entryB.index),
+  )
 
   return rankedProjects.map((entry) => entry.project)
+}
+
+const getOrderedProjectsForStrategy = (
+  projects: ProjectItem[],
+  strategy: ProjectOrderingStrategy,
+): ProjectItem[] => {
+  if (strategy === 'none') {
+    return projects
+  }
+
+  if (strategy === 'developer-tech') {
+    return sortByExistingOrder(projects, (projectA, projectB, indexA, indexB) => {
+      const techScoreA = countMatchingTags(projectA.tags, TERMINAL_ENGINEERING_TAGS)
+      const techScoreB = countMatchingTags(projectB.tags, TERMINAL_ENGINEERING_TAGS)
+
+      if (techScoreB !== techScoreA) {
+        return techScoreB - techScoreA
+      }
+
+      const statusA = STATUS_PRIORITY[projectA.status]
+      const statusB = STATUS_PRIORITY[projectB.status]
+      if (statusB !== statusA) {
+        return statusB - statusA
+      }
+
+      return indexA - indexB
+    })
+  }
+
+  const hasDesignData = projects.some(
+    (project) =>
+      Boolean(project.systemNotes) ||
+      Boolean(project.patterns?.length) ||
+      countMatchingTags(project.tags, TERMINAL_DESIGN_TAGS) > 0 ||
+      Boolean(project.featured) ||
+      Number.isFinite(parseProjectDate(project.date)),
+  )
+
+  if (!hasDesignData) {
+    return projects
+  }
+
+  return sortByExistingOrder(projects, (projectA, projectB, indexA, indexB) => {
+    const hasDesignNotesA =
+      (projectA.systemNotes ? 1 : 0) +
+      (projectA.patterns?.length ? 1 : 0) +
+      (countMatchingTags(projectA.tags, TERMINAL_DESIGN_TAGS) > 0 ? 1 : 0)
+    const hasDesignNotesB =
+      (projectB.systemNotes ? 1 : 0) +
+      (projectB.patterns?.length ? 1 : 0) +
+      (countMatchingTags(projectB.tags, TERMINAL_DESIGN_TAGS) > 0 ? 1 : 0)
+
+    if (hasDesignNotesB !== hasDesignNotesA) {
+      return hasDesignNotesB - hasDesignNotesA
+    }
+
+    const featuredA = projectA.featured ? 1 : 0
+    const featuredB = projectB.featured ? 1 : 0
+    if (featuredB !== featuredA) {
+      return featuredB - featuredA
+    }
+
+    const dateA = parseProjectDate(projectA.date)
+    const dateB = parseProjectDate(projectB.date)
+    if (dateB !== dateA) {
+      return dateB - dateA
+    }
+
+    return indexA - indexB
+  })
 }
 
 const buildHelpLines = (): string[] => [
@@ -559,20 +630,119 @@ function ToggleGroup<T extends string>({
   )
 }
 
+function DesignSystemLink({
+  children,
+  className = '',
+  variant = 'inline',
+}: DesignSystemLinkProps) {
+  const [isConfirming, setIsConfirming] = useState(false)
+  const openTimerRef = useRef<number | null>(null)
+  const resetTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (openTimerRef.current !== null) {
+        window.clearTimeout(openTimerRef.current)
+      }
+
+      if (resetTimerRef.current !== null) {
+        window.clearTimeout(resetTimerRef.current)
+      }
+    }
+  }, [])
+
+  const openDesignSystem = () => {
+    if (openTimerRef.current !== null) {
+      window.clearTimeout(openTimerRef.current)
+    }
+
+    if (resetTimerRef.current !== null) {
+      window.clearTimeout(resetTimerRef.current)
+    }
+
+    setIsConfirming(true)
+    openTimerRef.current = window.setTimeout(() => {
+      window.open('/design-system', '_blank', 'noopener,noreferrer')
+      openTimerRef.current = null
+
+      resetTimerRef.current = window.setTimeout(() => {
+        setIsConfirming(false)
+        resetTimerRef.current = null
+      }, 450)
+    }, DESIGN_SYSTEM_OPEN_DELAY)
+  }
+
+  if (variant === 'menu') {
+    return (
+      <button
+        className={`menu-action-button ${className}`.trim()}
+        type="button"
+        onClick={openDesignSystem}
+      >
+        <span>{children}</span>
+        <span className="menu-action-pill" aria-live="polite">
+          {isConfirming ? (
+              <AnimatedCheckmark
+                className="menu-action-check"
+                size="xSmall"
+                tone="success"
+                duration={620}
+              />
+          ) : (
+            'live'
+          )}
+        </span>
+      </button>
+    )
+  }
+
+  return (
+    <button
+      className={`design-system-link ${className}`.trim()}
+      type="button"
+      onClick={openDesignSystem}
+      aria-live="polite"
+    >
+      {isConfirming ? (
+        <AnimatedCheckmark
+          className="design-system-link-check"
+          size="xSmall"
+          tone="success"
+          duration={620}
+        />
+      ) : (
+        children
+      )}
+    </button>
+  )
+}
+
 function TopRightMenu({
   theme,
   onThemeChange,
-  profileMode,
-  onProfileModeChange,
 }: {
   theme: ThemeMode
   onThemeChange: (value: ThemeMode) => void
-  profileMode: ProfileMode
-  onProfileModeChange: (value: ProfileMode) => void
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const { mode, setMode } = usePortfolioMode()
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'm') {
+        event.preventDefault()
+        setIsOpen((currentValue) => !currentValue)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [])
 
   useEffect(() => {
     if (!isOpen) {
@@ -611,18 +781,27 @@ function TopRightMenu({
     }
   }, [isOpen])
 
+  const advancedValue: Extract<PortfolioMode, 'developer' | 'design'> =
+    mode === 'developer' ? 'developer' : 'design'
+  const isDesignMode = mode === 'design'
+
   return (
-    <div className="top-right-menu">
+    <div className="top-right-menu" data-design={isDesignMode}>
       <button
         ref={triggerRef}
         className="top-right-menu-trigger"
         type="button"
-        aria-label="Open appearance and mode settings"
+        aria-label="Open appearance and shell settings, Command or Control M"
         aria-expanded={isOpen}
         aria-controls="top-right-menu-popover"
+        title="Open menu (Cmd/Ctrl + M)"
         onClick={() => setIsOpen((currentValue) => !currentValue)}
       >
-        ⋯
+        {isDesignMode ? (
+          <CircleEllipsis size={22} strokeWidth={1.8} aria-hidden="true" />
+        ) : (
+          <Ellipsis size={18} strokeWidth={2} aria-hidden="true" />
+        )}
       </button>
 
       {isOpen ? (
@@ -631,14 +810,13 @@ function TopRightMenu({
           ref={popoverRef}
           className="top-right-menu-popover"
           role="dialog"
-          aria-label="Appearance and mode settings"
+          aria-label="Appearance and shell settings"
         >
           <ToggleGroup
             label="theme"
             value={theme}
             onChange={(value) => {
               onThemeChange(value)
-              setIsOpen(false)
             }}
             options={[
               { value: 'dark', label: 'dark' },
@@ -646,48 +824,79 @@ function TopRightMenu({
             ]}
           />
           <ToggleGroup
-            label="mode"
-            value={profileMode}
+            label="advanced"
+            value={advancedValue}
             onChange={(value) => {
-              onProfileModeChange(value)
-              setIsOpen(false)
+              if (value === 'developer') {
+                setMode('developer')
+              } else {
+                setMode('design')
+              }
             }}
             options={[
-              { value: 'professional', label: 'overview' },
-              { value: 'explore', label: 'workspace' },
+              { value: 'developer', label: 'developer' },
+              { value: 'design', label: 'design' },
             ]}
           />
+          <div className="menu-action-group">
+            <p className="toggle-label">system</p>
+            <DesignSystemLink variant="menu">design system</DesignSystemLink>
+          </div>
         </div>
       ) : null}
     </div>
   )
 }
 
-function TerminalNav() {
+function GlobalTopControls({
+  theme,
+  onThemeChange,
+}: {
+  theme: ThemeMode
+  onThemeChange: (value: ThemeMode) => void
+}) {
   return (
-    <nav className="terminal-nav" aria-label="Section navigation">
-      <span className="terminal-nav-label">jump:</span>
+    <div className="global-top-controls" aria-label="Portfolio controls">
+      <TopRightMenu theme={theme} onThemeChange={onThemeChange} />
+    </div>
+  )
+}
+
+function TerminalNav({ inline }: { inline?: boolean }) {
+  return (
+    <nav className={`terminal-nav${inline ? ' terminal-nav--inline' : ''}`} aria-label="Section navigation">
+      <span className="terminal-nav-label">nav</span>
       <a href="#about">about</a>
-      <a href="#projects">projects</a>
-      <a href="#terminal-project">terminal-project</a>
+      <a href="#projects">work</a>
+      <DesignSystemLink>system</DesignSystemLink>
       <a href="#contact">contact</a>
     </nav>
   )
 }
 
+function LensHeaderDesign() {
+  return (
+    <section className="lens-header lens-header--design" aria-label="Design lens">
+      <div className="lens-header-copy">
+        <p className="lens-header-title">Design View</p>
+        <p className="lens-header-subtitle">UI decisions, system, and accessibility notes.</p>
+      </div>
+    </section>
+  )
+}
+
 function AboutSection({
-  profileMode,
+  condensed,
   isOpen,
   isCollapsible,
   onToggle,
 }: {
-  profileMode: ProfileMode
+  condensed: boolean
   isOpen: boolean
   isCollapsible: boolean
   onToggle: () => void
 }) {
-  const visibleParagraphs =
-    profileMode === 'professional' ? ABOUT_PARAGRAPHS.slice(0, 3) : ABOUT_PARAGRAPHS
+  const visibleParagraphs = condensed ? ABOUT_PARAGRAPHS.slice(0, 3) : ABOUT_PARAGRAPHS
 
   return (
     <SectionFrame
@@ -752,14 +961,102 @@ function ExperienceSection({
   )
 }
 
+function ProjectCardStandard({
+  project,
+  showProjectTags,
+}: {
+  project: ProjectItem
+  showProjectTags: boolean
+}) {
+  return (
+    <li
+      id={project.name === 'portfolio' ? 'portfolio-project' : undefined}
+      className="project-item"
+      key={project.name}
+    >
+      <div className="project-heading">
+        <p className="project-name">{project.name}</p>
+        <span className={`project-status project-status--${project.status}`}>
+          [{project.status}]
+        </span>
+      </div>
+      <p className="project-summary">{project.summary}</p>
+      {showProjectTags ? (
+        <p className="project-tags">{project.tags.map((tag) => `#${tag}`).join(' ')}</p>
+      ) : null}
+      <div className="project-links">
+        {project.links.map((link) =>
+          link.href === '/design-system' ? (
+            <DesignSystemLink key={`${project.name}-${link.label}`}>
+              {link.label}
+            </DesignSystemLink>
+          ) : (
+            <a key={`${project.name}-${link.label}`} href={link.href} target="_blank" rel="noreferrer">
+              {link.label}
+            </a>
+          ),
+        )}
+      </div>
+    </li>
+  )
+}
+
+function ProjectCardDesign({ project }: { project: ProjectItem }) {
+  const hasPatterns = Boolean(project.patterns?.length)
+
+  return (
+    <li
+      id={project.name === 'portfolio' ? 'portfolio-project' : undefined}
+      className="project-item project-item--design"
+      key={project.name}
+    >
+      <div className="project-heading">
+        <p className="project-name">{project.name}</p>
+        <span className={`project-status project-status--${project.status}`}>
+          [{project.status}]
+        </span>
+      </div>
+
+      {project.tags.length > 0 ? (
+        <p className="design-card-tags">{project.tags.map((tag) => `#${tag}`).join(' ')}</p>
+      ) : null}
+
+      {project.systemNotes ? <p className="design-card-notes">{project.systemNotes}</p> : null}
+      <p className="project-summary">{project.summary}</p>
+
+      {hasPatterns ? (
+        <p className="design-card-patterns">
+          Patterns: {(project.patterns ?? []).join(' · ')}
+        </p>
+      ) : null}
+
+      <div className="project-links">
+        {project.links.map((link) =>
+          link.href === '/design-system' ? (
+            <DesignSystemLink key={`${project.name}-${link.label}`}>
+              {link.label}
+            </DesignSystemLink>
+          ) : (
+            <a key={`${project.name}-${link.label}`} href={link.href} target="_blank" rel="noreferrer">
+              {link.label}
+            </a>
+          ),
+        )}
+      </div>
+    </li>
+  )
+}
+
 function ProjectsSection({
   projects,
+  cardVariant,
   showProjectTags,
   isOpen,
   isCollapsible,
   onToggle,
 }: {
   projects: ProjectItem[]
+  cardVariant: CardVariant
   showProjectTags: boolean
   isOpen: boolean
   isCollapsible: boolean
@@ -774,34 +1071,20 @@ function ProjectsSection({
       isCollapsible={isCollapsible}
       onToggle={onToggle}
     >
-      <ul className="project-list">
-        {projects.map((project) => (
-          <li
-            id={project.name === 'terminal-portfolio' ? 'terminal-project' : undefined}
-            className="project-item"
-            key={project.name}
-          >
-            <div className="project-heading">
-              <p className="project-name">{project.name}</p>
-              <span className={`project-status project-status--${project.status}`}>
-                [{project.status}]
-              </span>
-            </div>
-            <p className="project-summary">{project.summary}</p>
-            {showProjectTags ? (
-              <p className="project-tags">
-                {project.tags.map((tag) => `#${tag}`).join(' ')}
-              </p>
-            ) : null}
-            <div className="project-links">
-              {project.links.map((link) => (
-                <a key={`${project.name}-${link.label}`} href={link.href} target="_blank" rel="noreferrer">
-                  {link.label}
-                </a>
-              ))}
-            </div>
-          </li>
-        ))}
+      <ul className={`project-list project-list--${cardVariant}`}>
+        {projects.map((project) => {
+          if (cardVariant === 'design') {
+            return <ProjectCardDesign key={project.name} project={project} />
+          }
+
+          return (
+            <ProjectCardStandard
+              key={project.name}
+              project={project}
+              showProjectTags={showProjectTags}
+            />
+          )
+        })}
       </ul>
     </SectionFrame>
   )
@@ -1108,19 +1391,254 @@ function ExploreTerminal({
   )
 }
 
-function App() {
-  const initialProfileMode = readStoredProfileMode()
-  const initialLensMode = readStoredExploreLens()
+function PortfolioShell({
+  view,
+  sectionOpenState,
+  onToggleSection,
+}: {
+  view: PortfolioView
+  sectionOpenState: ExploreSectionOpenState
+  onToggleSection: (sectionId: ExploreSectionId) => void
+}) {
+  const lensConfig = PORTFOLIO_LENS_CONFIG[view]
 
-  const [theme, setTheme] = useState<ThemeMode>(() => readStoredTheme())
-  const [profileMode, setProfileMode] = useState<ProfileMode>(initialProfileMode)
-  const [exploreLensMode, setExploreLensMode] =
-    useState<ExploreLensMode>(initialLensMode)
-  const [isTerminalOpen, setIsTerminalOpen] = useState(
-    initialProfileMode === 'explore'
-      ? LENS_CONFIG[initialLensMode].terminalDefaultOpen
-      : false,
+  const orderedProjects = useMemo(
+    () => getOrderedProjectsForStrategy(PROJECTS, lensConfig.orderingStrategy),
+    [lensConfig.orderingStrategy],
   )
+
+  const isCollapsible = view !== 'standard'
+  const sectionIsOpen = (sectionId: ExploreSectionId): boolean =>
+    view === 'standard' ? true : sectionOpenState[sectionId]
+
+  const renderedSections: Record<ExploreSectionId, ReactNode> = {
+    about: (
+      <AboutSection
+        condensed={view === 'standard'}
+        isOpen={sectionIsOpen('about')}
+        isCollapsible={isCollapsible}
+        onToggle={() => onToggleSection('about')}
+      />
+    ),
+    experience: (
+      <ExperienceSection
+        isOpen={sectionIsOpen('experience')}
+        isCollapsible={isCollapsible}
+        onToggle={() => onToggleSection('experience')}
+      />
+    ),
+    projects: (
+      <ProjectsSection
+        projects={orderedProjects}
+        cardVariant={lensConfig.cardVariant}
+        showProjectTags={lensConfig.cardVariant === 'standard' ? false : lensConfig.cardVariant === 'design'}
+        isOpen={sectionIsOpen('projects')}
+        isCollapsible={isCollapsible}
+        onToggle={() => onToggleSection('projects')}
+      />
+    ),
+    posts: (
+      <PostsSection
+        isOpen={sectionIsOpen('posts')}
+        isCollapsible={isCollapsible}
+        onToggle={() => onToggleSection('posts')}
+      />
+    ),
+  }
+
+  return (
+    <div className="terminal-landing">
+      <div className="portfolio-top-row">
+        <TerminalNav inline />
+      </div>
+
+      {view === 'design' ? <LensHeaderDesign /> : null}
+
+      {lensConfig.sectionOrder.map((sectionId) => (
+        <div key={sectionId}>{renderedSections[sectionId]}</div>
+      ))}
+    </div>
+  )
+}
+
+function DeveloperShell({
+  sectionOpenState,
+  onToggleSection,
+}: {
+  sectionOpenState: ExploreSectionOpenState
+  onToggleSection: (sectionId: ExploreSectionId) => void
+}) {
+  return (
+    <PortfolioShell
+      view="standard"
+      sectionOpenState={sectionOpenState}
+      onToggleSection={onToggleSection}
+    />
+  )
+}
+
+function DesignPortfolioShell() {
+  const orderedProjects = useMemo(
+    () => getOrderedProjectsForStrategy(PROJECTS, 'design-focus'),
+    [],
+  )
+  const featuredProject = orderedProjects.find((project) => project.featured) ?? orderedProjects[0]
+
+  return (
+    <div className="design-portfolio">
+      <header className="design-hero">
+        <div className="design-hero-copy">
+          <p className="design-kicker">Software Engineer / Designer</p>
+          <h1>Kolton Thompson</h1>
+          <p className="design-hero-title">I design the product surface and build the system underneath it.</p>
+          <p>
+            Product-minded engineer focused on resilient user-facing systems,
+            design systems, typed interfaces, and production-quality interaction
+            design.
+          </p>
+          <div className="design-hero-links" aria-label="Primary links">
+            {QUICK_LINKS.map((link) => (
+              <a key={link.label} href={link.href} target="_blank" rel="noreferrer">
+                {link.label}
+              </a>
+            ))}
+          </div>
+        </div>
+
+        <div className="design-hero-panel" aria-label="Engineering profile">
+          <p className="design-panel-label">Current Focus</p>
+          <div className="design-code-card" aria-label="Engineering focus">
+            <p><span>craft</span> engineering + design</p>
+            <p><span>range</span> discovery → production</p>
+            <p><span>strength</span> UI systems, UX, reliability</p>
+          </div>
+          <div className="design-stack-pills" aria-label="Technology stack">
+            {['React', 'TypeScript', 'Design Systems', 'Reliability'].map((item) => (
+              <span key={item}>{item}</span>
+            ))}
+          </div>
+          <DesignSystemLink>
+            Token Design System
+            <ExternalLink size={18} strokeWidth={2.2} aria-hidden="true" />
+          </DesignSystemLink>
+        </div>
+      </header>
+
+      <section className="design-metrics" aria-label="Engineering strengths">
+        <div>
+          <span>01</span>
+          <p>Product discovery through shipped UI</p>
+        </div>
+        <div>
+          <span>02</span>
+          <p>Design systems with engineering rigor</p>
+        </div>
+        <div>
+          <span>03</span>
+          <p>Production reliability without losing polish</p>
+        </div>
+      </section>
+
+      {featuredProject ? (
+        <section className="design-featured" aria-label="Featured project">
+          <div className="design-section-heading">
+            <p>Featured Build</p>
+            <h2>Portfolio platform</h2>
+          </div>
+          <div className="design-featured-card">
+            <div className="design-featured-main">
+              <span className={`design-status design-status--${featuredProject.status}`}>
+                {featuredProject.status}
+              </span>
+              <p>{featuredProject.systemNotes ?? featuredProject.summary}</p>
+              <div className="design-tag-row">
+                {featuredProject.tags.map((tag) => (
+                  <span key={tag}>{tag}</span>
+                ))}
+              </div>
+            </div>
+            <div className="design-featured-side">
+              <p>Patterns</p>
+              {(featuredProject.patterns ?? []).map((pattern) => (
+                <span key={pattern}>{pattern}</span>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="design-rail" aria-label="Project catalog">
+        <div className="design-section-heading">
+          <p>Project Index</p>
+          <h2>Shipped and planned engineering systems</h2>
+        </div>
+        <div className="design-card-row">
+          {orderedProjects.map((project) => (
+            <article
+              id={project.name === 'portfolio' ? 'portfolio-project' : undefined}
+              className="design-project-card"
+              key={project.name}
+            >
+              <div className="design-card-header">
+                <span>{project.status}</span>
+                {project.date ? <time dateTime={project.date}>{project.date}</time> : null}
+              </div>
+              <h3>{project.name}</h3>
+              <p>{project.summary}</p>
+              <div className="design-card-links">
+                {project.links.map((link) =>
+                  link.href === '/design-system' ? (
+                    <DesignSystemLink key={`${project.name}-${link.label}`}>
+                      {link.label}
+                    </DesignSystemLink>
+                  ) : (
+                    <a key={`${project.name}-${link.label}`} href={link.href} target="_blank" rel="noreferrer">
+                      {link.label}
+                    </a>
+                  ),
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="design-workbench" aria-label="Experience and writing">
+        <div className="design-workbench-column">
+          <div className="design-section-heading">
+            <p>Capabilities</p>
+            <h2>What I bring to a product team</h2>
+          </div>
+          <div className="design-capability-list">
+            {EXPERIENCE.map((entry) => (
+              <article key={entry.area}>
+                <span>{entry.area}</span>
+                <h3>{entry.title}</h3>
+                <p>{entry.summary}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <aside className="design-writing-panel">
+          <p className="design-panel-label">Writing</p>
+          {POSTS.map((post) => (
+            <article key={post.title}>
+              <time>{post.date}</time>
+              <h3>{post.title}</h3>
+              <p>{post.summary}</p>
+            </article>
+          ))}
+        </aside>
+      </section>
+    </div>
+  )
+}
+
+function GlobalModeDock() {
+  const { mode, setMode } = usePortfolioMode()
+  const isDeveloperMode = mode === 'developer'
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false)
   const [terminalFocusSignal, setTerminalFocusSignal] = useState(0)
   const [isLensPopoverOpen, setIsLensPopoverOpen] = useState(false)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => {
@@ -1130,110 +1648,18 @@ function App() {
 
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches
   })
-  const [exploreSectionOpenState, setExploreSectionOpenState] =
-    useState<ExploreSectionOpenState>(() =>
-      initialProfileMode === 'explore'
-        ? LENS_CONFIG[initialLensMode].sectionDefaults
-        : LENS_CONFIG.standard.sectionDefaults,
-    )
-
-  const sectionInteractionRef = useRef<Record<ExploreSectionId, boolean>>({
-    about: false,
-    experience: false,
-    projects: false,
-    posts: false,
-  })
   const lensPopoverRef = useRef<HTMLDivElement>(null)
   const lensToggleRef = useRef<HTMLButtonElement>(null)
+  const terminalPanelIsVisible = isDeveloperMode && isTerminalOpen
 
-  const activeLensConfig = LENS_CONFIG[exploreLensMode]
+  const openTerminalAndFocus = useCallback(() => {
+    if (!isDeveloperMode) {
+      return
+    }
 
-  const orderedProjects = useMemo(
-    () =>
-      profileMode === 'explore'
-        ? getOrderedProjects(PROJECTS, exploreLensMode)
-        : PROJECTS,
-    [profileMode, exploreLensMode],
-  )
-
-  const sectionOrder =
-    profileMode === 'explore'
-      ? activeLensConfig.sectionOrder
-      : (['about', 'experience', 'projects'] as const)
-
-  const setExploreDefaultsForLens = (lensMode: ExploreLensMode) => {
-    const defaults = LENS_CONFIG[lensMode].sectionDefaults
-
-    setExploreSectionOpenState((previousState) => {
-      let hasChanges = false
-      const nextState: ExploreSectionOpenState = { ...previousState }
-
-      for (const sectionId of EXPLORE_SECTION_IDS) {
-        if (sectionInteractionRef.current[sectionId]) {
-          continue
-        }
-
-        if (nextState[sectionId] !== defaults[sectionId]) {
-          hasChanges = true
-          nextState[sectionId] = defaults[sectionId]
-        }
-      }
-
-      return hasChanges ? nextState : previousState
-    })
-  }
-
-  const openTerminalAndFocus = () => {
     setIsTerminalOpen(true)
-    setTerminalFocusSignal((currentSignal) => currentSignal + 1)
-  }
-
-  const handleProfileModeChange = (value: ProfileMode) => {
-    setProfileMode(value)
-
-    if (value === 'explore') {
-      setExploreDefaultsForLens(exploreLensMode)
-      setIsTerminalOpen(LENS_CONFIG[exploreLensMode].terminalDefaultOpen)
-      return
-    }
-
-    setIsTerminalOpen(false)
-    setIsLensPopoverOpen(false)
-  }
-
-  const handleExploreLensChange = (lensMode: ExploreLensMode) => {
-    setExploreLensMode(lensMode)
-    setIsLensPopoverOpen(false)
-
-    if (profileMode !== 'explore') {
-      return
-    }
-
-    setExploreDefaultsForLens(lensMode)
-    setIsTerminalOpen(LENS_CONFIG[lensMode].terminalDefaultOpen)
-  }
-
-  const handleToggleSection = (sectionId: ExploreSectionId) => {
-    sectionInteractionRef.current[sectionId] = true
-
-    setExploreSectionOpenState((previousState) => ({
-      ...previousState,
-      [sectionId]: !previousState[sectionId],
-    }))
-  }
-
-  useEffect(() => {
-    safeLocalStorageSet(THEME_STORAGE_KEY, theme)
-    document.documentElement.style.colorScheme = theme
-  }, [theme])
-
-  useEffect(() => {
-    safeLocalStorageSet(PROFILE_STORAGE_KEY, profileMode)
-  }, [profileMode])
-
-  useEffect(() => {
-    safeLocalStorageSet(EXPLORE_LENS_STORAGE_KEY, exploreLensMode)
-  }, [exploreLensMode])
+    setTerminalFocusSignal((currentValue) => currentValue + 1)
+  }, [isDeveloperMode])
 
   useEffect(() => {
     if (!hasWindow()) {
@@ -1252,32 +1678,6 @@ function App() {
       mediaQuery.removeEventListener('change', onPreferenceChange)
     }
   }, [])
-
-  useEffect(() => {
-    if (!isLensPopoverOpen) {
-      return
-    }
-
-    const selectedOption = lensPopoverRef.current?.querySelector<HTMLButtonElement>(
-      'button[aria-checked="true"]',
-    )
-
-    if (selectedOption) {
-      const focusFrame = window.requestAnimationFrame(() => {
-        try {
-          selectedOption.focus({ preventScroll: true })
-        } catch {
-          selectedOption.focus()
-        }
-      })
-
-      return () => {
-        window.cancelAnimationFrame(focusFrame)
-      }
-    }
-
-    return undefined
-  }, [isLensPopoverOpen])
 
   useEffect(() => {
     if (!isLensPopoverOpen) {
@@ -1317,18 +1717,14 @@ function App() {
   }, [isLensPopoverOpen])
 
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (profileMode !== 'explore') {
-        return
-      }
+    if (!isDeveloperMode) {
+      return
+    }
 
+    const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'j') {
         event.preventDefault()
         setIsTerminalOpen((currentValue) => !currentValue)
-        return
-      }
-
-      if (exploreLensMode !== 'developer') {
         return
       }
 
@@ -1355,148 +1751,235 @@ function App() {
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [profileMode, exploreLensMode])
-
-  const isExploreMode = profileMode === 'explore'
-
-  const sectionIsOpen = (sectionId: ExploreSectionId): boolean =>
-    isExploreMode ? exploreSectionOpenState[sectionId] : true
-
-  const sectionIsCollapsible = isExploreMode
-
-  const renderedSections: Record<ExploreSectionId, ReactNode> = {
-    about: (
-      <AboutSection
-        profileMode={profileMode}
-        isOpen={sectionIsOpen('about')}
-        isCollapsible={sectionIsCollapsible}
-        onToggle={() => handleToggleSection('about')}
-      />
-    ),
-    experience: (
-      <ExperienceSection
-        isOpen={sectionIsOpen('experience')}
-        isCollapsible={sectionIsCollapsible}
-        onToggle={() => handleToggleSection('experience')}
-      />
-    ),
-    projects: (
-      <ProjectsSection
-        projects={orderedProjects}
-        showProjectTags={isExploreMode ? activeLensConfig.showProjectTags : false}
-        isOpen={sectionIsOpen('projects')}
-        isCollapsible={sectionIsCollapsible}
-        onToggle={() => handleToggleSection('projects')}
-      />
-    ),
-    posts: (
-      <PostsSection
-        isOpen={sectionIsOpen('posts')}
-        isCollapsible={sectionIsCollapsible}
-        onToggle={() => handleToggleSection('posts')}
-      />
-    ),
-  }
+  }, [isDeveloperMode, openTerminalAndFocus])
 
   return (
-    <main className={`app-shell theme-${theme} mode-${profileMode}`}>
-      <div className="terminal-landing">
-        <TopRightMenu
-          theme={theme}
-          onThemeChange={setTheme}
-          profileMode={profileMode}
-          onProfileModeChange={handleProfileModeChange}
-        />
-        <TerminalNav />
-
-        {sectionOrder.map((sectionId) => (
-          <div key={sectionId}>{renderedSections[sectionId]}</div>
-        ))}
-      </div>
-
-      {isExploreMode ? (
-        <div className="terminal-dock" data-open={isTerminalOpen}>
-          {isLensPopoverOpen ? (
-            <div
-              id="lens-mode-popover"
-              className="lens-popover"
-              ref={lensPopoverRef}
-              role="dialog"
-              aria-label="Mode selector"
-            >
-              <div className="lens-popover-list" role="radiogroup" aria-label="Explore lens mode">
-                {LENS_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    className="lens-option"
-                    type="button"
-                    role="radio"
-                    aria-checked={option.value === exploreLensMode}
-                    onClick={() => handleExploreLensChange(option.value)}
-                  >
-                    <span className="lens-option-check" aria-hidden="true">
-                      {option.value === exploreLensMode ? '✓' : ''}
-                    </span>
-                    <span className="lens-option-copy">
-                      <span className="lens-option-label">{option.label}</span>
-                      <span className="lens-option-description">{option.description}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          <div id="explore-terminal-panel" className="terminal-dock-panel" hidden={!isTerminalOpen}>
-            <ExploreTerminal
-              isOpen={isTerminalOpen}
-              focusSignal={terminalFocusSignal}
-              prefersReducedMotion={prefersReducedMotion}
-            />
-          </div>
-
-          <div
-            className={`terminal-dock-bar ${
-              activeLensConfig.terminalProminent ? 'terminal-dock-bar--developer' : ''
-            }`}
-          >
-            <div className="terminal-dock-bar-left">
+    <div className="terminal-dock" data-open={terminalPanelIsVisible}>
+      {isLensPopoverOpen ? (
+        <div
+          id="lens-mode-popover"
+          className="lens-popover"
+          ref={lensPopoverRef}
+          role="dialog"
+          aria-label="View selector"
+        >
+          <div className="lens-popover-list" role="radiogroup" aria-label="Portfolio view">
+            {MODE_OPTIONS.map((option) => (
               <button
-                className={`terminal-dock-toggle ${
-                  activeLensConfig.terminalProminent ? 'terminal-dock-toggle--prominent' : ''
-                }`}
+                key={option.value}
+                className="lens-option"
                 type="button"
-                onClick={() => setIsTerminalOpen((currentValue) => !currentValue)}
-                aria-expanded={isTerminalOpen}
-                aria-controls="explore-terminal-panel"
+                role="radio"
+                aria-checked={option.value === mode}
+                onClick={() => {
+                  if (option.value !== 'developer') {
+                    setIsTerminalOpen(false)
+                  }
+                  setMode(option.value)
+                  setIsLensPopoverOpen(false)
+                }}
               >
-                <span className="terminal-dock-icon" aria-hidden="true">
-                  &gt;_
+                <span className="lens-option-check" aria-hidden="true">
+                  {option.value === mode ? '✓' : ''}
                 </span>
-                <span>{isTerminalOpen ? 'close terminal' : 'open terminal'}</span>
+                <span className="lens-option-copy">
+                  <span className="lens-option-label">{option.label}</span>
+                  <span className="lens-option-description">{option.description}</span>
+                </span>
               </button>
-            </div>
-
-            <div className="terminal-dock-meta">
-              <button
-                ref={lensToggleRef}
-                className="terminal-lens-trigger"
-                type="button"
-                aria-expanded={isLensPopoverOpen}
-                aria-controls="lens-mode-popover"
-                onClick={() => setIsLensPopoverOpen((currentValue) => !currentValue)}
-              >
-                <span>Mode: {LENS_LABELS[exploreLensMode]}</span>
-                <span aria-hidden="true">▾</span>
-              </button>
-              <span className="terminal-dock-shortcut">
-                {exploreLensMode === 'developer' ? 'cmd/ctrl + k' : 'cmd/ctrl + j'}
-              </span>
-            </div>
+            ))}
           </div>
         </div>
       ) : null}
-    </main>
+
+      {isDeveloperMode ? (
+        <div id="explore-terminal-panel" className="terminal-dock-panel" hidden={!terminalPanelIsVisible}>
+          <ExploreTerminal
+            isOpen={terminalPanelIsVisible}
+            focusSignal={terminalFocusSignal}
+            prefersReducedMotion={prefersReducedMotion}
+          />
+        </div>
+      ) : null}
+
+      <div className="terminal-dock-bar terminal-dock-bar--developer">
+        <div className="terminal-dock-bar-left">
+          {isDeveloperMode ? (
+            <button
+              className="terminal-dock-toggle terminal-dock-toggle--prominent"
+              type="button"
+              onClick={() => setIsTerminalOpen((currentValue) => !currentValue)}
+              aria-expanded={terminalPanelIsVisible}
+              aria-controls="explore-terminal-panel"
+            >
+              <span className="terminal-dock-icon" aria-hidden="true">
+                &gt;_
+              </span>
+              <span>{terminalPanelIsVisible ? 'close terminal' : 'open terminal'}</span>
+            </button>
+          ) : (
+            <span className="terminal-dock-status">portfolio</span>
+          )}
+        </div>
+
+        <div className="terminal-dock-meta">
+          <button
+            ref={lensToggleRef}
+            className="terminal-lens-trigger"
+            type="button"
+            aria-expanded={isLensPopoverOpen}
+            aria-controls="lens-mode-popover"
+            onClick={() => setIsLensPopoverOpen((currentValue) => !currentValue)}
+          >
+            <span>View: {MODE_LABELS[mode]}</span>
+            <span aria-hidden="true">▾</span>
+          </button>
+          {isDeveloperMode ? (
+            <span className="terminal-dock-shortcut">cmd/ctrl + j · cmd/ctrl + k</span>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ModeGate({
+  sectionOpenState,
+  onToggleSection,
+}: {
+  sectionOpenState: ExploreSectionOpenState
+  onToggleSection: (sectionId: ExploreSectionId) => void
+}) {
+  const { mode } = usePortfolioMode()
+
+  if (mode === 'developer') {
+    return (
+      <DeveloperShell
+        sectionOpenState={sectionOpenState}
+        onToggleSection={onToggleSection}
+      />
+    )
+  }
+
+  if (mode === 'design') {
+    return <DesignPortfolioShell />
+  }
+
+  return (
+    <PortfolioShell
+      view={mode}
+      sectionOpenState={sectionOpenState}
+      onToggleSection={onToggleSection}
+    />
+  )
+}
+
+function App() {
+  const initialMode = readStoredMode()
+  const initialPortfolioView: PortfolioView =
+    initialMode === 'developer' ? 'standard' : initialMode
+
+  const [theme, setTheme] = useState<ThemeMode>(() => readStoredTheme())
+  const [modeState, setModeState] = useState<PortfolioMode>(initialMode)
+  const [portfolioSectionOpenState, setPortfolioSectionOpenState] =
+    useState<ExploreSectionOpenState>(() =>
+      cloneSectionState(
+        PORTFOLIO_LENS_CONFIG[initialPortfolioView].defaultExpandedSections,
+      ),
+    )
+
+  const lastPortfolioViewRef = useRef<PortfolioView>(initialPortfolioView)
+  const portfolioSectionInteractionRef = useRef<Record<ExploreSectionId, boolean>>({
+    about: false,
+    experience: false,
+    projects: false,
+    posts: false,
+  })
+
+  const applyPortfolioDefaults = (view: Exclude<PortfolioView, 'standard'>) => {
+    const defaults = PORTFOLIO_LENS_CONFIG[view].defaultExpandedSections
+
+    setPortfolioSectionOpenState((previousState) => {
+      let changed = false
+      const nextState = { ...previousState }
+
+      for (const sectionId of Object.keys(defaults) as ExploreSectionId[]) {
+        if (portfolioSectionInteractionRef.current[sectionId]) {
+          continue
+        }
+
+        if (nextState[sectionId] !== defaults[sectionId]) {
+          changed = true
+          nextState[sectionId] = defaults[sectionId]
+        }
+      }
+
+      return changed ? nextState : previousState
+    })
+  }
+
+  const setMode = (nextMode: PortfolioMode) => {
+    if (nextMode === 'developer') {
+      if (modeState !== 'developer') {
+        lastPortfolioViewRef.current = modeState
+      }
+
+      setModeState('developer')
+      return
+    }
+
+    lastPortfolioViewRef.current = nextMode
+
+    if (nextMode === 'standard') {
+      setPortfolioSectionOpenState(
+        cloneSectionState(PORTFOLIO_LENS_CONFIG.standard.defaultExpandedSections),
+      )
+    } else {
+      applyPortfolioDefaults(nextMode)
+    }
+
+    setModeState(nextMode)
+  }
+
+  const switchToPortfolio = () => {
+    setMode(lastPortfolioViewRef.current)
+  }
+
+  const onTogglePortfolioSection = (sectionId: ExploreSectionId) => {
+    portfolioSectionInteractionRef.current[sectionId] = true
+
+    setPortfolioSectionOpenState((previousState) => ({
+      ...previousState,
+      [sectionId]: !previousState[sectionId],
+    }))
+  }
+
+  useEffect(() => {
+    safeLocalStorageSet(THEME_STORAGE_KEY, theme)
+    document.documentElement.style.colorScheme = theme
+  }, [theme])
+
+  useEffect(() => {
+    safeLocalStorageSet(PORTFOLIO_MODE_STORAGE_KEY, modeState)
+  }, [modeState])
+
+  const modeContextValue: PortfolioModeContextValue = {
+    mode: modeState,
+    setMode,
+    switchToPortfolio,
+  }
+
+  return (
+    <PortfolioModeContext.Provider value={modeContextValue}>
+      <main className={`app-shell theme-${theme} mode-${modeState}`}>
+        <GlobalTopControls theme={theme} onThemeChange={setTheme} />
+        <ModeGate
+          sectionOpenState={portfolioSectionOpenState}
+          onToggleSection={onTogglePortfolioSection}
+        />
+        <GlobalModeDock />
+      </main>
+    </PortfolioModeContext.Provider>
   )
 }
 
